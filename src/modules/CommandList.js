@@ -9,6 +9,16 @@ function Commands() {
 
 module.exports = Commands;
 
+// Utils
+
+var println = function(gameServer,str) { // Line with [Game:1]
+    if (gameServer.masterServer != null) {
+        gameServer.masterServer.send(gameServer.getName()+str);
+    }
+
+    console.log(gameServer.getName()+str);
+}
+
 // Commands
 
 Commands.list = {
@@ -21,13 +31,13 @@ Commands.list = {
         for (var i = 0; i < add; i++) {
             gameServer.bots.addBot();
         }
-        console.log("[Console] Added "+add+" player bots");
+        println(gameServer," Added "+add+" player bots");
     },
     ban: function(gameServer,split) {
         var ip = split[1]; // Get ip
         if (gameServer.banned.indexOf(ip) == -1) {
             gameServer.banned.push(ip);
-            console.log("[Console] Added "+ip+" to the banlist");
+            println(gameServer," Added "+ip+" to the banlist");
 
             // Remove from game
             for (var i in gameServer.clients) {
@@ -42,19 +52,19 @@ Commands.list = {
                 }
             }
         } else {
-            console.log("[Console] That IP is already banned");
+            println(gameServer," That IP is already banned");
         }
     },
     banlist: function(gameServer,split) {
         if ((typeof split[1] != 'undefined') && (split[1].toLowerCase() == "clear")) {
             gameServer.banned = [];
-            console.log("[Console] Cleared ban list");
+            println(gameServer," Cleared ban list");
             return;
         }
 
-        console.log("[Console] Current banned IPs ("+gameServer.banned.length+")");
+        println(gameServer," Current banned IPs ("+gameServer.banned.length+")");
         for (var i in gameServer.banned) {
-            console.log(gameServer.banned[i]);
+            println(gameServer,gameServer.banned[i]);
         }
     },
     board: function(gameServer,split) {
@@ -67,7 +77,7 @@ Commands.list = {
         gameServer.gameMode.packetLB = 48;
         gameServer.gameMode.specByLeaderboard = false;
         gameServer.gameMode.updateLB = function(gameServer) {gameServer.leaderboard = newLB}; 
-        console.log("[Console] Successfully changed leaderboard values");
+        println(gameServer,gameServer.getName()+" Successfully changed leaderboard values");
     },
     boardreset: function(gameServer) {
         // Gets the current gamemode
@@ -76,7 +86,7 @@ Commands.list = {
         // Replace functions
         gameServer.gameMode.packetLB = gm.packetLB;
         gameServer.gameMode.updateLB = gm.updateLB; 
-        console.log("[Console] Successfully reset leaderboard");
+        println(gameServer,gameServer.getName()+" Successfully reset leaderboard");
     },
     change: function(gameServer,split) {
         var key = split[1];
@@ -91,9 +101,9 @@ Commands.list = {
 
         if (typeof gameServer.config[key] != 'undefined') {
             gameServer.config[key] = value;
-            console.log("[Console] Set " + key + " to " + value);
+            println(gameServer,gameServer.getName()+" Set " + key + " to " + value);
         } else {
-            console.log("[Console] Invalid config value");
+            println(gameServer,gameServer.getName()+" Invalid config value");
         }
     },
     clear: function() {
@@ -103,7 +113,7 @@ Commands.list = {
         // Validation checks
         var id = parseInt(split[1]);
         if (isNaN(id)) {
-            console.log("[Console] Please specify a valid player ID!");
+            println(gameServer,gameServer.getName()+" Please specify a valid player ID!");
             return;
         }
 
@@ -124,16 +134,13 @@ Commands.list = {
             }
         }
     },
-    debug: function(gameServer,split) {
-        parseName(split,1);
-    },
     food: function(gameServer,split) {
         var pos = {x: parseInt(split[1]), y: parseInt(split[2])};
         var mass = parseInt(split[3]);
 
         // Make sure the input values are numbers
         if (isNaN(pos.x) || isNaN(pos.y)) {
-            console.log("[Console] Invalid coordinates");
+            println(gameServer,gameServer.getName()+" Invalid coordinates");
             return;
         }
 
@@ -146,7 +153,10 @@ Commands.list = {
         f.setColor(gameServer.getRandomColor());
         gameServer.addNode(f);
         gameServer.currentFood++; 
-        console.log("[Console] Spawned 1 food cell at ("+pos.x+" , "+pos.y+")");
+        println(gameServer," Spawned 1 food cell at ("+pos.x+" , "+pos.y+")");
+    },
+    get: function() {
+
     },
     gamemode: function(gameServer,split) {
         try {
@@ -155,15 +165,15 @@ Commands.list = {
             gameServer.gameMode.onChange(gameServer); // Reverts the changes of the old gamemode
             gameServer.gameMode = gm; // Apply new gamemode
             gameServer.gameMode.onServerInit(gameServer); // Resets the server
-            console.log("[Game] Changed game mode to " + gameServer.gameMode.name);
+            println(gameServer," Changed game mode to " + gameServer.gameMode.name);
         } catch (e) {
-            console.log("[Console] Invalid game mode selected");
+            println(gameServer," Invalid game mode selected");
         }
     },
     kill: function(gameServer,split) {
         var id = parseInt(split[1]);
         if (isNaN(id)) {
-            console.log("[Console] Please specify a valid player ID!");
+            println(gameServer," Please specify a valid player ID!");
             return;
         }
 
@@ -177,7 +187,7 @@ Commands.list = {
                     count++;
                 }
 
-                console.log("[Console] Removed " + count + " cells");
+                println(gameServer," Removed " + count + " cells");
                 break;
             }
         }
@@ -189,19 +199,19 @@ Commands.list = {
             gameServer.removeNode(gameServer.nodesPlayer[0]);
             count++;
         }
-        console.log("[Console] Removed " + count + " cells");
+        println(gameServer," Removed " + count + " cells");
     },
     mass: function(gameServer,split) {
         // Validation checks
         var id = parseInt(split[1]);
         if (isNaN(id)) {
-            console.log("[Console] Please specify a valid player ID!");
+            println(gameServer," Please specify a valid player ID!");
             return;
         }
         
         var amount = Math.max(parseInt(split[2]),9);
         if (isNaN(amount)) {
-            console.log("[Console] Please specify a valid number");
+            println(gameServer," Please specify a valid number");
             return;
         }
 
@@ -213,7 +223,7 @@ Commands.list = {
                     client.cells[j].mass = amount;
                 }
 
-                console.log("[Console] Set mass of "+client.name+" to "+amount);
+                println(gameServer," Set mass of "+client.name+" to "+amount);
                 break;
             }
         }
@@ -247,7 +257,7 @@ Commands.list = {
                 data = "Spectating: " + nick;
             } else if (client.cells.length > 0) {
                 nick = (client.name == "") ? "An unnamed cell" : client.name;
-                data = "Nick: "+nick+"  Cells: "+client.cells.length+"  Score: "+client.getScore()+"  Position: ("+client.centerPos.x+" , "+client.centerPos.y+")";
+                data = "Nick: "+nick+"  Cells: "+client.cells.length+"  Score: "+client.getScore(true)+"  Position: ("+client.centerPos.x+" , "+client.centerPos.y+")";
             } else { 
                 // No cells = dead player or in-menu
                 data = "Dead"
@@ -260,7 +270,20 @@ Commands.list = {
     pause: function(gameServer,split) {
         gameServer.run = !gameServer.run; // Switches the pause state
         var s = gameServer.run ? "Unpaused" : "Paused";
-        console.log("[Console] " + s + " the game.");
+        println(gameServer," " + s + " the game.");
+    },
+    select: function(gameServer,split,masterServer) {
+        var id = parseInt(split[1]);
+        if (isNaN(id)) {
+            println(gameServer," Please specify a realm ID!");
+            return;
+        }
+
+        if (masterServer) {
+            masterServer.swap(id);
+        } else {
+            println(gameServer," Master server not found!");
+        }
     },
     status: function(gameServer,split) {
         // Get amount of humans/bots
@@ -273,23 +296,23 @@ Commands.list = {
             }
         }
         //
-        console.log("[Console] Connected players: "+gameServer.clients.length+"/"+gameServer.config.serverMaxConnections);
-        console.log("[Console] Players: "+humans+" Bots: "+bots);
-        console.log("[Console] Server has been running for "+process.uptime()+" seconds.");
-        console.log("[Console] Current memory usage: "+process.memoryUsage().heapUsed/1000+"/"+process.memoryUsage().heapTotal/1000+" kb");
-        console.log("[Console] Current game mode: "+gameServer.gameMode.name);
+        println(gameServer," Connected players: "+gameServer.clients.length+"/"+gameServer.config.serverMaxConnections);
+        println(gameServer," Players: "+humans+" Bots: "+bots);
+        println(gameServer," Server has been running for "+process.uptime()+" seconds.");
+        println(gameServer," Current memory usage: "+process.memoryUsage().heapUsed/1000+"/"+process.memoryUsage().heapTotal/1000+" kb");
+        println(gameServer," Current game mode: "+gameServer.gameMode.name);
     },
     tp: function(gameServer,split) {
         var id = parseInt(split[1]);
         if (isNaN(id)) {
-            console.log("[Console] Please specify a valid player ID!");
+            println(gameServer," Please specify a valid player ID!");
             return;
         }
 
         // Make sure the input values are numbers
         var pos = {x: parseInt(split[2]), y: parseInt(split[3])};      
         if (isNaN(pos.x) || isNaN(pos.y)) {
-            console.log("[Console] Invalid coordinates");
+            println(gameServer," Invalid coordinates");
             return;
         }
         
@@ -302,7 +325,7 @@ Commands.list = {
                     client.cells[j].position.y = pos.y;
                 }
 
-                console.log("[Console] Teleported "+client.name+" to ("+pos.x+" , "+pos.y+")");
+                println(gameServer," Teleported "+client.name+" to ("+pos.x+" , "+pos.y+")");
                 break;
             }
         }
@@ -312,9 +335,9 @@ Commands.list = {
         var index = gameServer.banned.indexOf(ip);
         if (index > -1) {
             gameServer.banned.splice(index,1);
-            console.log("[Console] Unbanned "+ip);
+            println(gameServer," Unbanned "+ip);
         } else {
-            console.log("[Console] That IP is not banned");
+            println(gameServer," That IP is not banned");
         }
     },
     virus: function(gameServer,split) {
@@ -323,7 +346,7 @@ Commands.list = {
          
         // Make sure the input values are numbers
         if (isNaN(pos.x) || isNaN(pos.y)) {
-            console.log("[Console] Invalid coordinates");
+            println(gameServer," Invalid coordinates");
             return;
         } if (isNaN(mass)) {
             mass = gameServer.config.virusStartMass;
@@ -332,6 +355,94 @@ Commands.list = {
         // Spawn
         var v = new Entity.Virus(gameServer.getNextNodeId(), null, pos, mass);
         gameServer.addNode(v);
-        console.log("[Console] Spawned 1 virus at ("+pos.x+" , "+pos.y+")");
+        println(gameServer," Spawned 1 virus at ("+pos.x+" , "+pos.y+")");
+    },
+};
+
+// Master server commands
+
+Commands.master = {
+    add: function(masterServer,split) {
+        var ip = split[1];
+        if (typeof ip == 'undefined') {
+            console.log(masterServer.getName()+" Please enter an IP address");
+            return;
+        }
+
+        var port = parseInt(split[2]);
+        if (isNaN(port)) {
+            console.log(masterServer.getName()+" Invalid Port!");
+            return;
+        }
+
+        var reg = split[3];
+        if (typeof masterServer.REGIONS[reg] == 'undefined') {
+            console.log(masterServer.getName()+" Invalid region name!");
+            return;
+        }
+
+        // Adds
+        masterServer.addServer(ip,port,reg);
+    },
+    all: function(masterServer,split) {
+        var com = split[1];
+        if (typeof com == 'undefined') {
+            console.log(masterServer.getName()+" Invalid string!");
+            return;
+        }
+
+        split.splice(0,1); // Removes the "all" command
+
+        for (var i in masterServer.gameServers) {
+            var gs = masterServer.gameServers[i];
+            gs.commands[com].execute(gs,split,masterServer);
+        }
+    },
+    create: function(masterServer,split) {
+        if (typeof masterServer.REGIONS[split[1]] == 'undefined') {
+            console.log(masterServer.getName()+" Invalid region name!");
+            return;
+        } 
+
+        var mode= parseInt(split[2]);
+        if (isNaN(mode)) {
+            mode = 0;
+        }
+            
+        // Adds
+        masterServer.createServer(split[1],mode);
+    },
+    select: function(masterServer,split) {
+        var id = parseInt(split[1]);
+        if (isNaN(id)) {
+            console.log(masterServer.getName()+" Please specify a realm ID!");
+            return;
+        }
+
+        if (masterServer) {
+            masterServer.swap(id);
+        } else {
+            console.log(masterServer.getName()+" Master server not found!");
+        }
+    },
+    serverlist: function(masterServer) {
+        console.log(masterServer.getName()+" Showing connected servers: ");
+        for (var i in masterServer.gameServers) {
+            var h = masterServer.gameServers[i];
+
+            if (h) { // Do not show deleted game servers
+                console.log("ID: "+h.server.realmID+"  IP: "+h.ip+" Region: "+h.server.region+"  Mode: "+h.stats.mode+"  Players: "+h.stats.players+"/"+h.stats.max);
+            }
+        }
+    },
+    remove: function(masterServer,split) {
+        var id = parseInt(split[1]);
+        if (isNaN(id)) {
+            console.log(masterServer.getName()+" Please specify a realm ID!");
+            return;
+        }
+
+        // Removes
+        masterServer.removeServer(id,true);
     },
 };

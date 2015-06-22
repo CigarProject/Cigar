@@ -12,9 +12,10 @@ var Gamemode = require('./gamemodes');
 var BotLoader = require('./ai/BotLoader.js');
 
 // GameServer implementation
-function GameServer() {
-    // Start msg
-    console.log("[Game] Ogar - An open source Agar.io server implementation");
+function GameServer(realmID,confile) {
+    // Master server stuff
+    this.realmID = realmID;
+    this.masterServer;
 
     // Startup 
     this.run = true;
@@ -48,6 +49,10 @@ function GameServer() {
         serverGamemode: 0, // Gamemode, 0 = FFA, 1 = Teams
         serverBots: 0, // Amount of player bots to spawn
         serverViewBase: 1024, // Base view distance of players. Warning: high values may cause lag
+        useWithMaster: true,
+        masterIP: "127.0.0.1",
+        masterCommands: true,
+        masterUpdate: 45,
         borderLeft: 0, // Left border of map (Vanilla value: 0)
         borderRight: 6000, // Right border of map (Vanilla value: 11180.3398875)
         borderTop: 0, // Top border of map (Vanilla value: 0)
@@ -81,7 +86,7 @@ function GameServer() {
         tourneyAutoFillPlayers: 1, // The timer for filling the server with bots will not count down unless there is this amount of real players
     };
     // Parse config
-    this.loadConfig();
+    this.loadConfig(confile);
 
     // Gamemodes
     this.gameMode = Gamemode.get(this.config.serverGamemode);
@@ -101,6 +106,10 @@ function GameServer() {
         {'r': 80, 'g':170, 'b':240},
         {'r': 55, 'g': 92, 'b':255},
     ];
+
+    // Debug
+    this.debug = false;
+    this.tickDebug = 0;
 }
 
 module.exports = GameServer;
@@ -118,15 +127,15 @@ GameServer.prototype.start = function() {
         setInterval(this.mainLoop.bind(this), 1);
 
         // Done
-        console.log("[Game] Listening on port %d", this.config.serverPort);
-        console.log("[Game] Current game mode is "+this.gameMode.name);
+        console.log("[Game:"+this.realmID+"] Game Server started at port %d", this.config.serverPort);
+        console.log("[Game:"+this.realmID+"] Current game mode is "+this.gameMode.name);
 
         // Player bots (Experimental)
         if (this.config.serverBots > 0) {
             for (var i = 0;i < this.config.serverBots;i++) {
                 this.bots.addBot();
             }
-            console.log("[Game] Loaded "+this.config.serverBots+" player bots");
+            console.log("[Game:"+this.realmID+"] Loaded "+this.config.serverBots+" player bots");
         }
     }.bind(this));
 
@@ -135,13 +144,67 @@ GameServer.prototype.start = function() {
     function connectionEstablished(ws) {
         if (this.clients.length > this.config.serverMaxConnections) { // Server full
             ws.close();
-            console.log("[Game] Client tried to connect, but server player limit has been reached!");
+            console.log("[Game:"+this.realmID+"] Client tried to connect, but server player limit has been reached!");
             return;
         } else if (this.banned.indexOf(ws._socket.remoteAddress) != -1) { // Banned
             ws.close();
             return;
         }
 
+        // Master server stuff
+        if ((this.config.useWithMaster) && (!this.masterServer)) {
+            if (this.config.masterIP == ws._socket.remoteAddress) {
+
+                ws.gameServer = this;
+
+                ws.on('message', function recv(msg) {
+                    if (msg.charAt(0) == 'H') {
+                        ws.gameServer.realmID = parseInt(msg.split('Hi')[1]);
+                        ws.send('Hello'); // Response
+                        console.log(ws.gameServer.getName()+" Connected to master server");
+                        // Send stats
+                        var stats = {
+                            players: ws.gameServer.clients.length,
+                            max: ws.gameServer.config.serverMaxConnections,
+                            mode: ws.gameServer.gameMode.name,
+                        };
+                        ws.gameServer.masterServer.send(JSON.stringify(stats)); 
+                        // Connection established
+                        if (ws.gameServer.config.masterCommands) {
+                            // Override
+                            ws.on('message', function recv(msg) {
+                                var split = msg.split(' ');
+                                var execute = ws.gameServer.commands[split[0]];
+                                execute(ws.gameServer,split);
+                            });
+                        } else {
+                            ws.on('message', function recv(msg) { /* Nothing */ });
+                        }
+                    }
+                });
+
+                this.masterServer = ws;
+
+                this.masterServer.timer = setInterval(function() {
+                    try {
+                        var stats = {
+                            players: this.clients.length,
+                            max: this.config.serverMaxConnections,
+                            mode: this.gameMode.name,
+                        };
+                        this.masterServer.send(JSON.stringify(stats));
+                    } catch (e) {
+                        console.log(this.getName()+" Master server disconnected!");
+                        clearInterval(this.masterServer.timer);
+                        this.masterServer.close();
+                        this.masterServer = null;
+                    }
+                }.bind(this), this.config.masterUpdate * 1000); 
+                return;
+            }
+        }
+
+        // Back to game server stuff
         function close(error) {
             //console.log("[Game] Disconnect: %s:%d", this.socket.remoteAddress, this.socket.remotePort);
 
@@ -175,7 +238,13 @@ GameServer.prototype.start = function() {
         ws.on('close', close.bind(bindObject));
         this.clients.push(ws);
     }
+
 };
+
+GameServer.prototype.getName = function() {
+    // Gets the name of this server. For use in the console
+    return "[Game:"+this.realmID+"]";
+}
 
 GameServer.prototype.getMode = function() {
     return this.gameMode;
@@ -310,10 +379,13 @@ GameServer.prototype.mainLoop = function() {
             this.lb_packet = new Packet.UpdateLeaderboard(this.leaderboard,this.gameMode.packetLB);
 
             this.tickMain = 0; // Reset
+
+            // Debug
+            if (this.debug) console.log("Tick Delay: "+this.tickDebug+" ms");
         }
 
         // Debug
-        //console.log(this.tick - 50);
+        if (this.debug) this.tickDebug = this.tick - 50;
 
         // Reset
         this.tick = 0;
@@ -765,10 +837,10 @@ GameServer.prototype.updateCells = function() {
     }
 };
 
-GameServer.prototype.loadConfig = function() {
+GameServer.prototype.loadConfig = function(confile) {
     try {
         // Load the contents of the config file
-        var load = ini.parse(fs.readFileSync('./gameserver.ini', 'utf-8'));
+        var load = ini.parse(fs.readFileSync(confile, 'utf-8'));
 
         // Replace all the default config's values with the loaded config's values
         for (var obj in load) {
@@ -776,10 +848,10 @@ GameServer.prototype.loadConfig = function() {
         }
     } catch (err) {
         // No config
-        console.log("[Game] Config not found... Generating new config");
+        console.log("[Game:"+this.realmID+"] Config not found... Generating new config");
 
         // Create a new config
-        fs.writeFileSync('./gameserver.ini', ini.stringify(this.config));
+        fs.writeFileSync(confile, ini.stringify(this.config));
     }
 };
 
