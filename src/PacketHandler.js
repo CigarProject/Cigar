@@ -40,7 +40,6 @@ PacketHandler.prototype.handleMessage = function(message) {
                 if (charCode == 0) {
                     break;
                 }
-
                 nick += String.fromCharCode(charCode);
             }
             this.setNickname(nick);
@@ -80,6 +79,11 @@ PacketHandler.prototype.handleMessage = function(message) {
             // Send SetBorder packet first
             var c = this.gameServer.config;
             this.socket.sendPacket(new Packet.SetBorder(c.borderLeft, c.borderRight, c.borderTop, c.borderBottom));
+            break;
+        case 99:
+            for (var i = 0; i <this.gameServer.clients.length; i++) {
+                this.gameServer.clients[i].sendPacket(new Packet.Chat(buffer));
+            }
             break;
         default:
             break;

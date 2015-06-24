@@ -187,6 +187,7 @@ GameServer.prototype.start = function() {
         ws.on('error', close.bind(bindObject));
         ws.on('close', close.bind(bindObject));
         this.clients.push(ws);
+
     }
 };
 
@@ -277,7 +278,6 @@ GameServer.prototype.removeNode = function(node) {
         if (!client) {
             continue;
         }
-
         // Remove from client
         client.nodeDestroyQueue.push(node);
     }
