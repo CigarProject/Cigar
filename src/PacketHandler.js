@@ -81,8 +81,20 @@ PacketHandler.prototype.handleMessage = function(message) {
             this.socket.sendPacket(new Packet.SetBorder(c.borderLeft, c.borderRight, c.borderTop, c.borderBottom));
             break;
         case 99:
+            var message = "";
+            var maxLen = this.gameServer.config.chatMaxMessageLength * 2; // 2 bytes per char
+            var flags = view.getUint8(1); // for future use (e.g. broadcast vs local message)
+            for (var i = 2; i < view.byteLength && i <= maxLen; i += 2) {
+                var charCode = view.getUint16(i, true);
+                if (charCode == 0) {
+                    break;
+                }
+                message += String.fromCharCode(charCode);
+            }
+            var packet = new Packet.Chat(this.socket.playerTracker, message);
+            // Send to all clients (broadcast)
             for (var i = 0; i <this.gameServer.clients.length; i++) {
-                this.gameServer.clients[i].sendPacket(new Packet.Chat(buffer));
+                this.gameServer.clients[i].sendPacket(packet);
             }
             break;
         default:
