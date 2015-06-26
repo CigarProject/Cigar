@@ -77,6 +77,7 @@ function GameServer() {
         tourneyEndTime: 30, // Amount of ticks to wait after a player wins (1 tick = 1000 ms)
         tourneyAutoFill: 0, // If set to a value higher than 0, the tournament match will automatically fill up with bots after this amount of seconds
         tourneyAutoFillPlayers: 1, // The timer for filling the server with bots will not count down unless there is this amount of real players
+        chatMaxMessageLength: 200, // Maximum message length
     };
     // Parse config
     this.loadConfig();
@@ -188,6 +189,7 @@ GameServer.prototype.start = function() {
         ws.on('error', close.bind(bindObject));
         ws.on('close', close.bind(bindObject));
         this.clients.push(ws);
+
     }
 };
 
@@ -278,7 +280,6 @@ GameServer.prototype.removeNode = function(node) {
         if (!client) {
             continue;
         }
-
         // Remove from client
         client.nodeDestroyQueue.push(node);
     }

@@ -13,7 +13,7 @@ function PacketHandler(gameServer, socket) {
 
 module.exports = PacketHandler;
 
-PacketHandler.prototype.handleMessage = function(message) {
+PacketHandler.prototype.handleMessage = function (message) {
     function stobuf(buf) {
         var length = buf.length;
         var arrayBuf = new ArrayBuffer(length);
@@ -40,7 +40,6 @@ PacketHandler.prototype.handleMessage = function(message) {
                 if (charCode == 0) {
                     break;
                 }
-
                 nick += String.fromCharCode(charCode);
             }
             this.setNickname(nick);
@@ -81,19 +80,46 @@ PacketHandler.prototype.handleMessage = function(message) {
             var c = this.gameServer.config;
             this.socket.sendPacket(new Packet.SetBorder(c.borderLeft, c.borderRight, c.borderTop, c.borderBottom));
             break;
+        case 99:
+            var message = "";
+            var maxLen = this.gameServer.config.chatMaxMessageLength * 2; // 2 bytes per char
+            var offset = 2;
+            var flags = view.getUint8(1); // for future use (e.g. broadcast vs local message)
+            if (flags & 2) {
+                offset += 4;
+            }
+            if (flags & 4) {
+                offset += 8;
+            }
+            if (flags & 8) {
+                offset += 16;
+            }
+            for (var i = offset; i < view.byteLength && i <= maxLen; i += 2) {
+                var charCode = view.getUint16(i, true);
+                if (charCode == 0) {
+                    break;
+                }
+                message += String.fromCharCode(charCode);
+            }
+            var packet = new Packet.Chat(this.socket.playerTracker, message);
+            // Send to all clients (broadcast)
+            for (var i = 0; i < this.gameServer.clients.length; i++) {
+                this.gameServer.clients[i].sendPacket(packet);
+            }
+            break;
         default:
             break;
     }
 };
 
-PacketHandler.prototype.setNickname = function(newNick) {
+PacketHandler.prototype.setNickname = function (newNick) {
     var client = this.socket.playerTracker;
     if (client.cells.length < 1) {
         // Set name first
-        client.setName(newNick); 
+        client.setName(newNick);
 
         // If client has no cells... then spawn a player
-        this.gameServer.gameMode.onPlayerSpawn(this.gameServer,client);
+        this.gameServer.gameMode.onPlayerSpawn(this.gameServer, client);
 
         // Turn off spectate mode
         client.spectate = false;
