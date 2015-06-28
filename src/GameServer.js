@@ -723,7 +723,7 @@ GameServer.prototype.getCellsInRange = function(cell) {
         var ys = Math.pow(check.position.y - cell.position.y, 2);
         var dist = Math.sqrt( xs + ys );
 
-        var eatingRange = cell.getSize() - check.getEatingRange(); // Eating range = radius of eating cell + 50% of the radius of the cell being eaten
+        var eatingRange = cell.getSize() - check.getEatingRange(); // Eating range = radius of eating cell + 40% of the radius of the cell being eaten
         if (dist > eatingRange) {
             // Not in eating range
             continue;
@@ -846,7 +846,11 @@ GameServer.prototype.switchSpectator = function(player) {
 WebSocket.prototype.sendPacket = function(packet) {
     // Send only if the buffer is empty
     if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0) && packet.build) {
-        this.send(packet.build(), {binary: true});
+        try {
+            this.send(packet.build(), {binary: true});
+        } catch (e) {
+            console.log("[Error] "+e);
+        }
     } else {
         //console.log("[Warning] There was an error sending the packet!");
         // Remove socket
