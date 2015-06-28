@@ -12,15 +12,11 @@ var Gamemode = require('./gamemodes');
 var BotLoader = require('./ai/BotLoader.js');
 
 // GameServer implementation
-<<<<<<< HEAD
 function GameServer(realmID,confile) {
     // Master server stuff
     this.realmID = realmID;
     this.masterServer;
 
-=======
-function GameServer() {
->>>>>>> master
     // Startup 
     this.run = true;
     this.lastNodeId = 1;
