@@ -1,5 +1,5 @@
 # Cigar
-A fully functional open source Agar.io server implementation, written in Node.js. Cigar is based on the same code as Ogar, but introduces features that an only be used with unofficial clients.
+A fully functional open source Agar.io server implementation, written in Node.js. Cigar is based on the same code as Ogar, but introduces features that can only be used with unofficial clients.
 
 ## Obtaining and Using
 If you are on Windows, Cigar no longer requires an installation of node.js to run. Simply launch the batch file that is included to run the server. The rest of this section is for non Windows users.
