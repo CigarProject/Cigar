@@ -31,7 +31,12 @@ UpdateLeaderboard.prototype.build = function() {
             var view = new DataView(buf);
 
             // Set packet data
-            view.setUint8(0, 49, true); // Packet ID
+            // TODO: check client version
+            //if(client = 1332175218){
+            view.setUint8(0, this.packetLB, true); // Packet ID
+            //}else{
+            //  view.setUin8(0, 49, true); // Packet ID
+            //}
             view.setUint32(1, validElements, true); // Number of elements
             var offset = 5;
 
