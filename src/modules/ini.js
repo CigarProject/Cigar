@@ -107,15 +107,13 @@ function decode (str) {
 
         // safeguard against resetting a previously defined
         // array by accidentally forgetting the brackets
-        if (Array.isArray(p[key])) {
-            p[key].push(value);
-        }
         if (isNaN(value)) {
-            p[key] = value;
             if (value == 'true') { // Booleans
                 p[key] = true;
             } else if (value == 'false') {
                 p[key] = false;
+            } else {
+                p[key] = value;
             }
         } else {
             if (isInt(value)) {

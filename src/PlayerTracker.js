@@ -22,7 +22,7 @@ function PlayerTracker(gameServer, socket) {
 
     // Viewing box
     this.sightRange = 0;
-    this.centerPos = {x: 0, y: 0 };
+    this.centerPos = {x: 3000, y: 3000 };
     this.viewBox = {
         topY: 0,
         bottomY: 0,
@@ -86,7 +86,6 @@ PlayerTracker.prototype.update = function() {
     }
 
     if (this.socket.packetHandler.pressQ) { // Q Press
-        //this.socket.sendPacket(new Packet.DrawLine(this.mouse.x,this.mouse.y));
         this.gameServer.gameMode.pressQ(this.gameServer,this);
         this.socket.packetHandler.pressQ = false;
     }
@@ -130,7 +129,7 @@ PlayerTracker.prototype.update = function() {
         
         this.visibleNodes = newVisible;
         // Reset Ticks
-        this.tickViewBox = 8;
+        this.tickViewBox = 10;
     } else {
         this.tickViewBox--;
         // Add nodes to screen
@@ -151,7 +150,7 @@ PlayerTracker.prototype.update = function() {
     }
 
     // Send packet
-    this.socket.sendPacket(new Packet.UpdateNodes(this.nodeDestroyQueue.slice(0), updateNodes, nonVisibleNodes));
+    this.socket.sendPacket(new Packet.UpdateNodes(this.nodeDestroyQueue, updateNodes, nonVisibleNodes));
 
     this.nodeDestroyQueue = []; // Reset destroy queue
     this.nodeAdditionQueue = []; // Reset addition queue

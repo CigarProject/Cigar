@@ -1,5 +1,6 @@
 // Imports
 var Commands = require('./modules/CommandList');
+var GameServer = require('./GameServer');
 
 // Init variables
 var runMaster = false;
@@ -15,10 +16,12 @@ var selected = function consoleObj() {
 // Start msg
 console.log("[Ogar] An open source Agar.io server implementation");
 
+// Handle arguments
 process.argv.forEach(function(val) {
     if (val == "--master") {
         runMaster = true;
     }  else if (val == "--noconsole") {
+    if (val == "--noconsole") {
         showConsole = false;
     } else if (val == "--debug") {
         showConsole = false;
@@ -33,6 +36,7 @@ process.argv.forEach(function(val) {
     }
 });
 
+<<<<<<< HEAD
 if (runMaster) {
     // Initialize the master server
     MasterServer = require('./MasterServer');

@@ -149,7 +149,7 @@ MasterServer.prototype.loadConfig = function() {
 
         // Intial selection
         if (this.gameServers[0]) {
-            this.selected.server = this.gameServers[0];
+            this.selected.server = this.gameServers[0].server;
         } else {
             // No game servers
             this.selected.server = this;

@@ -12,11 +12,15 @@ var Gamemode = require('./gamemodes');
 var BotLoader = require('./ai/BotLoader.js');
 
 // GameServer implementation
+<<<<<<< HEAD
 function GameServer(realmID,confile) {
     // Master server stuff
     this.realmID = realmID;
     this.masterServer;
 
+=======
+function GameServer() {
+>>>>>>> master
     // Startup 
     this.run = true;
     this.lastNodeId = 1;
@@ -48,6 +52,7 @@ function GameServer(realmID,confile) {
         serverPort: 443, // Server port
         serverGamemode: 0, // Gamemode, 0 = FFA, 1 = Teams
         serverBots: 0, // Amount of player bots to spawn
+        serverBotsIgnoreViruses: false,
         serverViewBase: 1024, // Base view distance of players. Warning: high values may cause lag
         useWithMaster: true,
         masterIP: "127.0.0.1",
@@ -79,11 +84,13 @@ function GameServer(realmID,confile) {
         playerMassDecayRate: .002, // Amount of mass lost per second
         playerMinMassDecay: 9, // Minimum mass for decay to occur
         playerMaxNickLength: 15, // Maximum nick length
+        playerDisconnectTime: 60, // The amount of seconds it takes for a player cell to be removed after disconnection (If set to -1, cells are never removed)
         tourneyMaxPlayers: 12, // Maximum amount of participants for tournament style game modes
         tourneyPrepTime: 10, // Amount of ticks to wait after all players are ready (1 tick = 1000 ms)
         tourneyEndTime: 30, // Amount of ticks to wait after a player wins (1 tick = 1000 ms)
         tourneyAutoFill: 0, // If set to a value higher than 0, the tournament match will automatically fill up with bots after this amount of seconds
         tourneyAutoFillPlayers: 1, // The timer for filling the server with bots will not count down unless there is this amount of real players
+        chatMaxMessageLength: 200, // Maximum message length
     };
     // Parse config
     this.loadConfig(confile);
@@ -119,7 +126,7 @@ GameServer.prototype.start = function() {
     this.gameMode.onServerInit(this);
 
     // Start the server
-    this.socketServer = new WebSocket.Server({ port: this.config.serverPort }, function() {
+    this.socketServer = new WebSocket.Server({ port: this.config.serverPort, perMessageDeflate: false}, function() {
         // Spawn starting food
         this.startingFood();
 
@@ -140,6 +147,22 @@ GameServer.prototype.start = function() {
     }.bind(this));
 
     this.socketServer.on('connection', connectionEstablished.bind(this));
+
+    // Properly handle errors because some people are too lazy to read the readme
+    this.socketServer.on('error', function err(e) {
+        switch (e.code) {
+            case "EADDRINUSE": 
+                console.log("[Error] Server could not bind to port! Please close out of Skype or change 'serverPort' in gameserver.ini to a different number.");
+                break;
+            case "EACCES": 
+                console.log("[Error] Please make sure you are running Ogar with root privileges.");
+                break;
+            default:
+                console.log("[Error] Unhandled error code: "+e.code);
+                break;
+        }
+        process.exit(1); // Exits the program
+    });
 
     function connectionEstablished(ws) {
         if (this.clients.length > this.config.serverMaxConnections) { // Server full
@@ -206,18 +229,20 @@ GameServer.prototype.start = function() {
 
         // Back to game server stuff
         function close(error) {
-            //console.log("[Game] Disconnect: %s:%d", this.socket.remoteAddress, this.socket.remotePort);
+            //console.log("[Game] Disconnect: "+error);
 
             var client = this.socket.playerTracker;
             var len = this.socket.playerTracker.cells.length;
             for (var i = 0; i < len; i++) {
-                var cell = this.socket.playerTracker.cells[0];
+                var cell = this.socket.playerTracker.cells[i];
 
                 if (!cell) {
                     continue;
                 }
 
-                this.server.removeNode(cell);
+                cell.disconnect = this.server.config.playerDisconnectTime;
+                cell.calcMove = function() {return;}; // Clear function so that the cell cant move
+                //this.server.removeNode(cell);
             }
 
             var index = this.server.clients.indexOf(this.socket);
@@ -226,7 +251,7 @@ GameServer.prototype.start = function() {
             }
         }
 
-        //console.log("[Game] Connect: %s:%d", ws._socket.remoteAddress, ws._socket.remotePort);
+        // console.log("[Game] Connect: %s:%d", ws._socket.remoteAddress, ws._socket.remotePort);
         ws.remoteAddress = ws._socket.remoteAddress;
         ws.remotePort = ws._socket.remotePort;
         ws.playerTracker = new PlayerTracker(this, ws);
@@ -237,6 +262,7 @@ GameServer.prototype.start = function() {
         ws.on('error', close.bind(bindObject));
         ws.on('close', close.bind(bindObject));
         this.clients.push(ws);
+
     }
 
 };
@@ -333,11 +359,37 @@ GameServer.prototype.removeNode = function(node) {
         if (!client) {
             continue;
         }
-
         // Remove from client
         client.nodeDestroyQueue.push(node);
     }
 };
+
+GameServer.prototype.cellTick = function() {
+    // Move cells
+    this.updateMoveEngine();
+}
+
+GameServer.prototype.spawnTick = function() {
+    // Spawn food
+    this.tickSpawn++;
+    if (this.tickSpawn >= this.config.spawnInterval) {
+        this.updateFood(); // Spawn food
+        this.virusCheck(); // Spawn viruses
+
+        this.tickSpawn = 0; // Reset
+    }
+}
+
+GameServer.prototype.gamemodeTick = function() {
+    // Gamemode tick
+    this.gameMode.onTick(this);
+}
+
+GameServer.prototype.cellUpdateTick = function() {
+    // Update cells
+    this.updateCells();
+}
+
 
 GameServer.prototype.mainLoop = function() {
     // Timer
@@ -348,20 +400,9 @@ GameServer.prototype.mainLoop = function() {
     if (this.tick >= 50) {
         // Loop main functions
         if (this.run) {
-            // Move cells
-            this.updateMoveEngine();
-
-            // Spawn food
-            this.tickSpawn++;
-            if (this.tickSpawn >= this.config.spawnInterval) {
-                this.updateFood(); // Spawn food
-                this.virusCheck(); // Spawn viruses
-
-                this.tickSpawn = 0; // Reset
-            }
-            
-            // Gamemode tick
-            this.gameMode.onTick(this);
+            setTimeout(this.cellTick(), 0);
+            setTimeout(this.spawnTick(), 0);
+            setTimeout(this.gamemodeTick(), 0);
         }
 
         // Update the client's maps
@@ -370,8 +411,7 @@ GameServer.prototype.mainLoop = function() {
         // Update cells/leaderboard loop
         this.tickMain++;
         if (this.tickMain >= 20) { // 1 Second
-            // Update cells
-            this.updateCells();
+            setTimeout(this.cellUpdateTick(), 0);
 
             // Update leaderboard with the gamemode's method
             this.leaderboard = [];
@@ -765,7 +805,7 @@ GameServer.prototype.getCellsInRange = function(cell) {
         var ys = Math.pow(check.position.y - cell.position.y, 2);
         var dist = Math.sqrt( xs + ys );
 
-        var eatingRange = cell.getSize() - check.getEatingRange(); // Eating range = radius of eating cell + 50% of the radius of the cell being eaten
+        var eatingRange = cell.getSize() - check.getEatingRange(); // Eating range = radius of eating cell + 40% of the radius of the cell being eaten
         if (dist > eatingRange) {
             // Not in eating range
             continue;
@@ -811,11 +851,6 @@ GameServer.prototype.getNearestVirus = function(cell) {
 };
 
 GameServer.prototype.updateCells = function() {
-    if (!this.run) {
-        // Dont run this function if the server is paused
-        return;
-    }
-
     // Loop through all player cells
     var massDecay = 1 - (this.config.playerMassDecayRate * this.gameMode.decayMod);
     for (var i = 0; i < this.nodesPlayer.length; i++) {
@@ -825,8 +860,15 @@ GameServer.prototype.updateCells = function() {
             continue;
         }
 
-        // Recombining
-        if (cell.recombineTicks > 0) {
+        if (cell.disconnect > -1) {
+            // Player has disconnected... remove it when the timer hits -1
+            cell.disconnect--;
+            if (cell.disconnect == -1) {
+                this.removeNode(cell);
+                continue;
+            }
+        } else if (cell.recombineTicks > 0) {
+            // Recombining
             cell.recombineTicks--;
         }
 
@@ -870,9 +912,17 @@ GameServer.prototype.switchSpectator = function(player) {
                 oldPlayer = 0;
                 continue;
             }
+            
+            if (!this.clients[oldPlayer]) {
+                // Break out of loop in case client tries to spectate an undefined player
+                player.spectatedPlayer = -1;
+                break;
+            }
+            
             if (this.clients[oldPlayer].playerTracker.cells.length > 0) {
                 break;
             }
+            
             oldPlayer++;
             count++;
         }
@@ -886,22 +936,21 @@ GameServer.prototype.switchSpectator = function(player) {
 
 // Custom prototype functions
 WebSocket.prototype.sendPacket = function(packet) {
-    function getbuf(data) {
-        var array = new Uint8Array(data.buffer || data);
-        var l = data.byteLength || data.length;
-        var o = data.byteOffset || 0;
-        var buffer = new Buffer(l);
-
-        for (var i = 0; i < l; i++) {
-            buffer[i] = array[o + i];
+    // Send only if the buffer is empty
+    if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0) && packet.build) {
+        try {
+            this.send(packet.build(), {binary: true});
+        } catch (e) {
+            console.log("[Error] "+e);
+            // Remove socket
+            this.emit('close');
+            this.removeAllListeners();
         }
-
-        return buffer;
-    }
-
-    if (this.readyState == WebSocket.OPEN && packet.build) {
-        var buf = packet.build();
-        this.send(getbuf(buf), { binary: true });
+    } else {
+        //console.log("[Warning] There was an error sending the packet!");
+        // Remove socket
+        this.emit('close');
+        this.removeAllListeners();
     }
 };
 
