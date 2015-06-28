@@ -107,10 +107,20 @@ function decode (str) {
 
         // safeguard against resetting a previously defined
         // array by accidentally forgetting the brackets
-        if (isInt(value)) {
-            p[key] = parseInt(value);
+        if (isNaN(value)) {
+            if (value == 'true') { // Booleans
+                p[key] = true;
+            } else if (value == 'false') {
+                p[key] = false;
+            } else {
+                p[key] = value;
+            }
         } else {
-            p[key] = parseFloat(value);
+            if (isInt(value)) {
+                p[key] = parseInt(value);
+            } else {
+                p[key] = parseFloat(value);
+            }  
         }
     });
 
