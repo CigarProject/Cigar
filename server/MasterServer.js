@@ -40,6 +40,38 @@ module.exports = MasterServer;
 var MS;
 
 MasterServer.prototype.start = function() {
+    function onError(error) {
+        if (error.syscall !== 'listen') {
+            throw error;
+        }
+
+        var bind = typeof port === 'string'
+            ? 'Pipe ' + port
+            : 'Port ' + port;
+
+        // handle specific listen errors with friendly messages
+        switch (error.code) {
+            case 'EACCES':
+                console.log('[Master] ' + bind + ' requires elevated privileges');
+                process.exit(1);
+                break;
+            case 'EADDRINUSE':
+                console.log('[Master] ' + bind + ' is already in use');
+                process.exit(1);
+                break;
+            default:
+                throw error;
+        }
+    }
+
+    function onListening() {
+        var addr = server.address();
+        var bind = typeof addr === 'string'
+            ? 'pipe ' + addr
+            : 'port ' + addr.port;
+        console.log('[Master] Listening on ' + bind);
+    }
+
     this.loadConfig();
     setInterval(this.onTick.bind(this),this.config.updateTime * 1000);
     this.onTick(); // Init
@@ -49,9 +81,9 @@ MasterServer.prototype.start = function() {
     webapp.setMaster(MS);
     this.httpServer = http.createServer(webapp);
 
-    this.httpServer.listen(this.config.serverPort, function() {
-        console.log("[Master] Listening on port %d", this.config.serverPort);
-    }.bind(this));
+    this.httpServer.listen(this.config.serverPort);
+    this.httpServer.on('error', onError);
+    this.httpServer.on('listening', onListening);
 };
 
 MasterServer.prototype.getName = function() {
