@@ -3,7 +3,7 @@ var Commands = require('./modules/CommandList');
 var GameServer = require('./GameServer');
 
 // Init variables
-var runMaster = false;
+var runMaster = true;
 var showConsole = true;
 
 var masterServer;
@@ -18,8 +18,8 @@ console.log("[Cigar] An open source Agar.io server implementation");
 
 // Handle arguments
 process.argv.forEach(function(val) {
-    if (val == "--master") {
-        runMaster = true;
+    if (val == "--nomaster") {
+        runMaster = false;
     } else if (val == "--noconsole") {
         showConsole = false;
     } else if (val == "--debug") {
