@@ -1,8 +1,8 @@
 {
-  "name": "Ogar",
+  "name": "Cigar",
   "version": "1.0.0",
-  "description": "Open source Agar.io server",
-  "main": "src/index.js",
+  "description": "Open source Agar.io server and client",
+  "main": "server/index.js",
   "dependencies": {
     "ws": "^0.7.2"
   },
