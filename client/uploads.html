@@ -1,0 +1,10 @@
+<!-- The data encoding type, enctype, MUST be specified as below -->
+<form enctype="multipart/form-data" action="uploads.php" method="POST">
+    <!-- MAX_FILE_SIZE must precede the file input field -->
+    <!-- Name of input element determines name in $_FILES array -->
+    upload avatar picture, for example, if your name is <font size="6">foo</font> in the game, name your file as <font size="6" color="red">foo.png</font> (less than 2M, currently only <font size = "6">english</font> is supported, use <font size="6" color="red">png</font>), your avatar will appear 
+<br></br>
+
+<input type="file" name="fileToUpload" id="fileToUpload">
+    <input type="submit" value="Upload Image" name="submit">
+</form>
