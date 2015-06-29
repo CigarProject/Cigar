@@ -1,7 +1,7 @@
 // Imports
 var http = require('http');
+var webapp = require('./web/app');
 var WebSocket = require('ws');
-var qs = require('querystring');
 var fs = require("fs");
 var ini = require('./modules/ini.js');
 
@@ -45,50 +45,9 @@ MasterServer.prototype.start = function() {
     this.onTick(); // Init
     MS = this;
 
-    this.httpServer = http.createServer(function(req, res) {
-        // Client connection
-        //console.log("[Master] Connect: %s:%d", req.connection.remoteAddress, req.connection.remotePort);
-
-        // Handle the request
-        if (req.method == 'POST') {
-            var body = '';
-            req.on('data', function (data) {
-                body += data;
-
-                if (body.length > 1e6) {
-                    request.connection.destroy();
-                }
-            });
-            req.on('end', function () {
-                var post = qs.parse(body);
-
-                // Data
-                var key = Object.keys(post)[0];
-
-                if (key in MS.REGIONS) {
-                    // Send if region exists
-                    post = MS.getServer(key);
-                } else {
-                    // Region does not exist!
-                    post = "0.0.0.0";
-                }
-
-                res.setHeader('Access-Control-Allow-Origin', '*');
-                res.writeHead(200);
-                res.end(post);
-            });
-        } else if ((req.method == 'GET') && (req.url = "/info")) {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.writeHead(200);
-            res.end(JSON.stringify(this.info));
-        }
-
-        /*
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.writeHead(200);
-        res.end('127.0.0.1:444');
-        */
-    }.bind(this));
+    webapp.set('port', this.config.serverPort);
+    webapp.setMaster(MS);
+    this.httpServer = http.createServer(webapp);
 
     this.httpServer.listen(this.config.serverPort, function() {
         console.log("[Master] Listening on port %d", this.config.serverPort);
