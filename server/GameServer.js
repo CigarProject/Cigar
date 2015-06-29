@@ -170,56 +170,57 @@ GameServer.prototype.start = function() {
         }
 
         // Master server stuff
-        if ((this.config.useWithMaster) && (!this.masterServer)) {
-            if (this.config.masterIP == ws._socket.remoteAddress) {
+        if ((this.config.masterIP == ws._socket.remoteAddress) && (!this.masterServer) && (this.config.useWithMaster)) {
+            ws.gameServer = this;
 
-                ws.gameServer = this;
-
-                ws.on('message', function recv(msg) {
-                    if (msg.charAt(0) == 'H') {
-                        ws.gameServer.realmID = parseInt(msg.split('Hi')[1]);
-                        ws.send('Hello'); // Response
-                        console.log(ws.gameServer.getName()+" Connected to master server");
-                        // Send stats
-                        var stats = {
-                            players: ws.gameServer.clients.length,
-                            max: ws.gameServer.config.serverMaxConnections,
-                            mode: ws.gameServer.gameMode.name,
-                        };
-                        ws.gameServer.masterServer.send(JSON.stringify(stats)); 
-                        // Connection established
-                        if (ws.gameServer.config.masterCommands) {
-                            // Override
-                            ws.on('message', function recv(msg) {
-                                var split = msg.split(' ');
-                                var execute = ws.gameServer.commands[split[0]];
+            ws.on('message', function recv(msg) {
+                if (msg.charAt(0) == 'H') {
+                    ws.gameServer.realmID = parseInt(msg.split('Hi')[1]);
+                    ws.send('Hello'); // Response
+                    console.log(ws.gameServer.getName()+" Connected to master server");
+                    // Send stats
+                    var stats = {
+                        players: ws.gameServer.clients.length,
+                        max: ws.gameServer.config.serverMaxConnections,
+                        mode: ws.gameServer.gameMode.name,
+                    };
+                    ws.gameServer.masterServer.send(JSON.stringify(stats)); 
+                    // Connection established
+                    if (ws.gameServer.config.masterCommands) {
+                        // Override
+                        ws.on('message', function recv(msg) {
+                            var split = msg.split(' ');
+                            var execute = ws.gameServer.commands[split[0]];
+                            if (execute) {
                                 execute(ws.gameServer,split);
-                            });
-                        } else {
-                            ws.on('message', function recv(msg) { /* Nothing */ });
-                        }
+                            } else {
+                                console.log(ws.gameServer.getName()+" Invalid command!");
+                            }
+                        });
+                    } else {
+                        ws.on('message', function recv(msg) { /* Nothing */ });
                     }
-                });
+                }
+            });
 
-                this.masterServer = ws;
+            this.masterServer = ws;
 
-                this.masterServer.timer = setInterval(function() {
-                    try {
-                        var stats = {
-                            players: this.clients.length,
-                            max: this.config.serverMaxConnections,
-                            mode: this.gameMode.name,
-                        };
-                        this.masterServer.send(JSON.stringify(stats));
-                    } catch (e) {
-                        console.log(this.getName()+" Master server disconnected!");
-                        clearInterval(this.masterServer.timer);
-                        this.masterServer.close();
-                        this.masterServer = null;
-                    }
-                }.bind(this), this.config.masterUpdate * 1000); 
-                return;
-            }
+            this.masterServer.timer = setInterval(function() {
+                try {
+                    var stats = {
+                        players: this.clients.length,
+                        max: this.config.serverMaxConnections,
+                        mode: this.gameMode.name,
+                    };
+                    this.masterServer.send(JSON.stringify(stats));
+                } catch (e) {
+                    console.log(this.getName()+" Master server disconnected!");
+                    clearInterval(this.masterServer.timer);
+                    this.masterServer.close();
+                    this.masterServer = null;
+                }
+            }.bind(this), this.config.masterUpdate * 1000); 
+            return;
         }
 
         // Back to game server stuff
