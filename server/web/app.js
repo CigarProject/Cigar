@@ -138,7 +138,7 @@ hbs.registerHelper('eachSkin', function (context, options) {
 
         if(!dir.hasOwnProperty('err') && dir.hasOwnProperty('names')) {
             for (var i = 0, j = dir.names.length; i < j; i++) {
-                ret = ret + options.fn(dir.names[i]);
+                ret = ret + options.fn({name: dir.names[i]});
             }
         }
 
