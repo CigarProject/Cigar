@@ -1,6 +1,7 @@
 // Imports
 var Commands = require('./modules/CommandList');
 var GameServer = require('./GameServer');
+var path = require('path');
 
 // Init variables
 var runMaster = true;
