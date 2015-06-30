@@ -7,9 +7,7 @@ router.get('/', function (req, res, next) {
 });
 
 router.get('/gallery', function (req, res, next) {
-    var ret = app.locals.checkdir(function (ret) {
-        res.render('gallery', {title: 'Ogar skins', gallery: true, skins: ret.names});
-    });
+    res.render('gallery', {title: 'Ogar skins', gallery: true});
 });
 
 module.exports = router;

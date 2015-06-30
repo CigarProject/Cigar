@@ -1,9 +1,8 @@
 <ul>
-    {{#each skins}}
+    {{#each checkdir.skins}}
         <li>
             <div class=\"circular\" style='background-image: url(../skins/{{this}}.png)'><p
                     class=\"imgDescription\">{{this}}</p></div>
         </li>
-        <a href='{{this.val}}' class='text-muted'>{{this.name}}</a>
     {{/each}}
 </ul>
