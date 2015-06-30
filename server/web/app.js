@@ -132,7 +132,7 @@ app.locals.checkdir = function (maxage, suffix) {
     }
 }(500, '.png');
 
-hbs.registerHelper('eachSkin', function (context, options) {
+hbs.registerHelper('eachSkin', function (options) {
     app.locals.checkdir(function (dir) {
         var ret = "";
 
