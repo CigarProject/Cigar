@@ -105,6 +105,8 @@ app.get('/info', function (req, res, next) {
     res.end(JSON.stringify(masterServer.info));
 });
 
+app.locals.skins = [];
+
 app.locals.checkdir = function (maxage, suffix) {
     var cache = null,
         timestamp = Date.now() - maxage - 1;
@@ -124,6 +126,7 @@ app.locals.checkdir = function (maxage, suffix) {
                     }
                 }
                 cache = tmp;
+                app.locals.skins = tmp.names;
                 cb(cache);
             });
         } else {
@@ -131,19 +134,18 @@ app.locals.checkdir = function (maxage, suffix) {
         }
     }
 }(500, '.png');
+app.locals.checkdir(function(){});
 
 hbs.registerHelper('eachSkin', function (options) {
-    app.locals.checkdir(function (dir) {
-        var ret = "";
+    var ret = "";
 
-        if(!dir.hasOwnProperty('err') && dir.hasOwnProperty('names')) {
-            for (var i = 0, j = dir.names.length; i < j; i++) {
-                ret = ret + options.fn({name: dir.names[i]});
-            }
+    if (app.locals.skins != null) {
+        for (var i = 0, j = app.locals.skins.length; i < j; i++) {
+            ret = ret + options.fn({name: app.locals.skins[i]});
         }
+    }
 
-        return ret;
-    });
+    return ret;
 });
 
 app.post('/checkdir', function (req, res, next) {
