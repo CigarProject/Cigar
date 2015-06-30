@@ -6,6 +6,7 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var fs = require('fs');
 var busboy = require('connect-busboy');
+var hbs = require('hbs');
 
 var routes = require('./routes/index');
 
@@ -78,6 +79,7 @@ app.use(busboy({limits: {fileSize: 512 * 1024}}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
+app.use('/', routes);
 
 app.post('/', function (req, res, next) {
     var post = req.body;
@@ -103,62 +105,60 @@ app.get('/info', function (req, res, next) {
     res.end(JSON.stringify(masterServer.info));
 });
 
-var maxage = 500;
-app.locals.checkdir = {skins: null, timestamp: Date.now() - maxage - 1};
+app.locals.checkdir = function (maxage, suffix) {
+    var cache = null,
+        timestamp = Date.now() - maxage - 1;
 
-app.locals.checkdir.update = function (cb) {
-    var suffix = '.png';
-    if (this.skins == null || (Date.now() - this.timestamp) > maxage) {
-        fs.readdir(path.join(__dirname, '..', '..', 'client', 'skins'), function (err, files) {
-            this.timestamp = Date.now();
-            if (err) {
-                this.skins = null;
-                cb(this.skins);
-            }
-            var tmp = [];
-            for (var i = 0; i < files.length; i++) {
-                if (files[i].length > suffix.length && files[i].slice(-suffix.length) === suffix) {
-                    tmp.push(files[i].slice(0, -suffix.length));
+    return function (cb) {
+        if (cache == null || (Date.now() - timestamp) > maxage) {
+            fs.readdir(path.join(__dirname, '..', '..', 'client', 'skins'), function (err, files) {
+                timestamp = Date.now();
+                if (err) {
+                    cache = {action: 'test', err: true};
+                    cb(cache);
                 }
-            }
-            this.skins = tmp;
-            cb(this.skins);
-        });
-    }
-    cb(this.skins);
-};
-
-app.post('/checkdir', function (req, res, next) {
-    app.locals.checkdir.update(function () {
-        next();
-    });
-});
-
-app.get('/gallery', function (req, res, next) {
-    app.locals.checkdir.update(function () {
-        if (app.locals.checkdir.skins == null) {
-            app.locals.checkdir.timestamp -= maxage - 1;
-            app.locals.checkdir.skins = [];
+                var tmp = {action: 'test', names: []};
+                for (var i = 0; i < files.length; i++) {
+                    if (files[i].length > suffix.length && files[i].slice(-suffix.length) === suffix) {
+                        tmp.names.push(files[i].slice(0, -suffix.length));
+                    }
+                }
+                cache = tmp;
+                cb(cache);
+            });
+        } else {
+            cb(cache);
         }
-        next();
+    }
+}(500, '.png');
+
+hbs.registerHelper('eachSkin', function (context, options) {
+    app.locals.checkdir(function (dir) {
+        var ret = "";
+
+        if(!dir.hasOwnProperty('err') && dir.hasOwnProperty('names')) {
+            for (var i = 0, j = dir.names.length; i < j; i++) {
+                ret = ret + options.fn(dir.names[i]);
+            }
+        }
+
+        return ret;
     });
 });
 
 app.post('/checkdir', function (req, res, next) {
     if (req.body.hasOwnProperty('action') && req.body.action == 'test') {
-        var ret = {action: 'test', names: []};
-        if (app.locals.checkdir.skins == null) {
-            res.writeHead(500);
-            res.end(JSON.stringify(ret));
-        } else {
-            ret.names = app.locals.checkdir.skins;
-            res.writeHead(200);
-            res.end(JSON.stringify(ret));
-        }
+        app.locals.checkdir(function (ret) {
+            if (ret.hasOwnProperty('err')) {
+                res.writeHead(500);
+                res.end(JSON.stringify(ret));
+            } else {
+                res.writeHead(200);
+                res.end(JSON.stringify(ret));
+            }
+        });
     }
 });
-
-app.use('/', routes);
 
 app.use(express.static(path.join(__dirname, '..', '..', 'client')));
 
