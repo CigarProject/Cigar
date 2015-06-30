@@ -6,6 +6,7 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var fs = require('fs');
 var busboy = require('connect-busboy');
+var hbs = require('hbs');
 
 var routes = require('./routes/index');
 
@@ -104,6 +105,8 @@ app.get('/info', function (req, res, next) {
     res.end(JSON.stringify(masterServer.info));
 });
 
+app.locals.skins = [];
+
 app.locals.checkdir = function (maxage, suffix) {
     var cache = null,
         timestamp = Date.now() - maxage - 1;
@@ -123,6 +126,7 @@ app.locals.checkdir = function (maxage, suffix) {
                     }
                 }
                 cache = tmp;
+                app.locals.skins = tmp.names;
                 cb(cache);
             });
         } else {
@@ -130,10 +134,23 @@ app.locals.checkdir = function (maxage, suffix) {
         }
     }
 }(500, '.png');
+app.locals.checkdir(function(){});
+
+hbs.registerHelper('eachSkin', function (options) {
+    var ret = "";
+
+    if (app.locals.skins != null) {
+        for (var i = 0, j = app.locals.skins.length; i < j; i++) {
+            ret = ret + options.fn({name: app.locals.skins[i]});
+        }
+    }
+
+    return ret;
+});
 
 app.post('/checkdir', function (req, res, next) {
     if (req.body.hasOwnProperty('action') && req.body.action == 'test') {
-        var ret = app.locals.checkdir(function (ret) {
+        app.locals.checkdir(function (ret) {
             if (ret.hasOwnProperty('err')) {
                 res.writeHead(500);
                 res.end(JSON.stringify(ret));
