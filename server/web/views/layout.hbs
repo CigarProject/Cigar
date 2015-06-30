@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Eat cells smaller than you and don't get eaten by the bigger ones, as an MMO">
+    <meta name="keywords"
+          content="agario, agar, io, cell, cells, virus, bacteria, blob, game, games, web game, html5, fun, flash">
+    <meta name="robots" content="index, follow">
+    <meta name="viewport"
+          content="minimal-ui, width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>{{title}}</title>
+    <link href='https://fonts.googleapis.com/css?family=Ubuntu:700' rel='stylesheet' type='text/css'>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
+    <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="Vector2.js"></script>
+    <script src="main_out.js"></script>
+    <style>body {
+        padding: 0;
+        margin: 0;
+        overflow: hidden;
+    }
+
+    #canvas {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .checkbox label {
+        margin-right: 10px;
+    }
+
+    form {
+        margin-bottom: 0px;
+    }
+
+    .btn-play, .btn-settings, .btn-spectate {
+        display: block;
+        height: 35px;
+    }
+
+    .btn-play {
+        width: 85%;
+        float: left;
+    }
+
+    .btn-settings {
+        width: 13%;
+        float: right;
+    }
+
+    .btn-spectate {
+        display: block;
+        float: right;
+    }
+
+    #adsBottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+
+    #adsBottomInner {
+        margin: 0px auto;
+        width: 728px;
+        height: 90px;
+        border: 5px solid white;
+        border-radius: 5px 5px 0px 0px;
+        background-color: #FFFFFF;
+        box-sizing: content-box;
+    }
+
+    .region-message {
+        display: none;
+        margin-bottom: 12px;
+        margin-left: 6px;
+        margin-right: 6px;
+        text-align: center;
+    }
+
+    #nick, #locationKnown #region {
+        width: 65%;
+        float: left;
+    }
+
+    #locationUnknown #region {
+        margin-bottom: 15px;
+    }
+
+    #gamemode, #spectateBtn {
+        width: 33%;
+        float: right;
+    }
+
+    #helloDialog {
+        width: 350px;
+        background-color: #FFFFFF;
+        margin: 10px auto;
+        border-radius: 15px;
+        padding: 5px 15px 5px 15px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        margin-right: -50%;
+        -webkit-transform: translate(-50%, -50%);
+        -ms-transform: translate(-50%, -50%);
+        transform: translate(-50%, -50%);
+    }
+
+    #chat_textbox {
+        -webkit-transition: all .5s ease-in-out;
+        -moz-transition: all .5s ease-in-out;
+        -o-transition: all .5s ease-in-out;
+        transition: all .5s ease-in-out;
+        position: absolute;
+        z-index: 1;
+        bottom: 10px;
+        background: rgba(0, 0, 0, .2);
+        border: 0px;
+        outline: none;
+        color: #FFF;
+        height: 30px;
+        text-indent: 12px;
+        left: 10px;
+        width: 300px;
+    }
+
+    #chat_textbox:focus {
+        background: rgba(0, 0, 0, .5);
+    }
+
+    #a300x250 {
+        width: 300px;
+        height: 250px;
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center center;
+    }</style>
+</head>
+<body>
+{{{body}}}
+</body>
+</html>

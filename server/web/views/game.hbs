@@ -1,0 +1,127 @@
+<div id="fb-root"></div>
+<div id="overlays"
+     style="display:none; position: absolute; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(0,0,0,0.5); z-index: 200;">
+    <div id="helloDialog">
+        <form role="form">
+            <div class="form-group">
+                <div style="float: left; margin-left: 20px;"><h2>Agar clone</h2></div>
+                <div class="fb-like" style="float: right; margin-top: 30px;"
+                     data-href="https://www.facebook.com/playagar.io" data-layout="button" data-action="like"
+                     data-show-faces="true" data-share="true"></div>
+                <br clear="both"/>
+            </div>
+            <div class="form-group">
+                <input id="nick" class="form-control" placeholder="Nick" maxlength="15"/>
+                <select id="gamemode" class="form-control" onchange="setGameMode($(this).val());" required>
+                    <option selected value="">FFA</option>
+                    <option value=":teams">Teams</option>
+                    <option value=":experimental">Experimental</option>
+                </select>
+                <br clear="both"/>
+            </div>
+            <div id="locationUnknown">
+                <select id="region" class="form-control" onchange="setRegion($('#region').val());" required>
+                    <option selected disabled value=''> -- Select a Region --</option>
+                    {{#each regions}}
+                        <option value='{{this.val}}'>{{this.name}}</option>
+                    {{else}}
+                        <option disabled value=''>No regions</option>
+                    {{/each}}
+                </select>
+            </div>
+            <div>
+                <div class="text-muted region-message CN-China">
+
+                </div>
+            </div>
+            <div class="form-group">
+                <div>
+
+                    <a href="uploads.html" class="btn-primary btn btn-info" role="button">Upload Skins</a>
+                    <a href="gallery" class="btn-primary btn btn-info" role="button">Skins Gallery</a>
+                    <p></p>
+                </div>
+
+                <button disabled type="submit" id="playBtn"
+                        onclick="setNick(document.getElementById('nick').value); return false;"
+                        class="btn btn-play btn-primary btn-needs-server">Play
+                </button>
+                <button onclick="$('#settings, #instructions').toggle();return false;"
+                        class="btn btn-info btn-settings"><i class="glyphicon glyphicon-cog"></i></button>
+                <br clear="both"/>
+            </div>
+            <div id="settings" class="checkbox" style="display:none;">
+                <div class="form-group" id="mainform">
+                    <div id="locationKnown"></div>
+                    <button id="spectateBtn" onclick="spectate(); return false;" disabled
+                            class="btn btn-warning btn-spectate btn-needs-server">Spectate
+                    </button>
+                    <br clear="both"/>
+                </div>
+                <div style="margin: 6px;">
+                    <label><input type="checkbox" onchange="setSkins(!$(this).is(':checked'));"> No skins</label>
+                    <label><input type="checkbox" onchange="setNames(!$(this).is(':checked'));"> No names</label>
+                    <label><input type="checkbox" onchange="setDarkTheme($(this).is(':checked'));"> Dark Theme</label>
+                    <label><input type="checkbox" onchange="setColors($(this).is(':checked'));"> No colors</label>
+                    <label><input type="checkbox" onchange="setShowMass($(this).is(':checked'));"> Show mass</label>
+                    <label><input type="checkbox" onchange="setSmooth($(this).is(':checked'));"> Smooth Render</label>
+                </div>
+            </div>
+        </form>
+        <div id="instructions">
+            <hr/>
+            <center><span class="text-muted">
+Move your mouse to control your cell<br/>
+Press <b>Space</b> to split<br/>
+Press <b>W</b> to eject some mass<br/>
+</span></center>
+        </div>
+        <hr/>
+        <center>
+
+            <center>
+    <span class="text-muted">
+       </span>
+            </center>
+            <div>
+            </div>
+            <small class="text-muted text-center"></small>
+        </center>
+        {{#if links}}
+            <hr style="margin-bottom: 7px; "/>
+            <div style="margin-bottom: 5px; line-height: 32px; margin-left: 6px; height: 32px;">
+                <center>
+                    <footer class='text-center'>
+                        {{#each links}}
+                            {{#unless @first}}|{{/unless}}
+                            <a href='{{this.val}}' class='text-muted'>{{this.name}}</a>
+                        {{/each}}
+                    </footer>
+                </center>
+            </div>
+        {{/if}}
+
+    </div>
+</div>
+<div id="connecting"
+     style="display:none;position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 100; background-color: rgba(0,0,0,0.5);">
+    <div style="width: 350px; background-color: #FFFFFF; margin: 100px auto; border-radius: 15px; padding: 5px 15px 5px 15px;">
+        <h2>Connecting</h2>
+
+        <p> If you cannot connect to the servers, check if you have some anti virus or firewall blocking the connection.
+    </div>
+</div>
+<canvas id="canvas" width="800" height="600"></canvas>
+<input type="text" id="chat_textbox" maxlength="200"/>
+
+<div style="font-family:'Ubuntu'">&nbsp;</div>
+
+<script type="text/javascript">
+    $('input').keypress(function(e) {
+        if (e.which == '13') {
+            e.preventDefault();
+            if (!isSpectating)
+                setNick(document.getElementById('nick').value);
+        }
+    });
+</script>

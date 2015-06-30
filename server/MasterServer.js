@@ -1,7 +1,7 @@
 // Imports
 var http = require('http');
+var webapp = require('./web/app');
 var WebSocket = require('ws');
-var qs = require('querystring');
 var fs = require("fs");
 var ini = require('./modules/ini.js');
 
@@ -40,74 +40,61 @@ module.exports = MasterServer;
 var MS;
 
 MasterServer.prototype.start = function() {
+    function onError(error) {
+        if (error.syscall !== 'listen') {
+            throw error;
+        }
+
+        // handle specific listen errors with friendly messages
+        switch (error.code) {
+            case 'EACCES':
+                console.log('[Master] ' + MS.config.serverPort + ' requires elevated privileges');
+                process.exit(1);
+                break;
+            case 'EADDRINUSE':
+                console.log('[Master] ' + MS.config.serverPort + ' is already in use');
+                process.exit(1);
+                break;
+            default:
+                throw error;
+        }
+    }
+
+    function onListening() {
+        var addr = MS.httpServer.address();
+        var bind = typeof addr === 'string'
+            ? 'pipe ' + addr
+            : 'port ' + addr.port;
+        console.log('[Master] Listening on ' + bind);
+    }
+
     this.loadConfig();
     setInterval(this.onTick.bind(this),this.config.updateTime * 1000);
     this.onTick(); // Init
     MS = this;
 
-    this.httpServer = http.createServer(function(req, res) {
-        // Client connection
-        //console.log("[Master] Connect: %s:%d", req.connection.remoteAddress, req.connection.remotePort);
+    webapp.set('port', this.config.serverPort);
+    webapp.setMaster(MS);
+    this.httpServer = http.createServer(webapp);
 
-        // Handle the request
-        if (req.method == 'POST') {
-            var body = '';
-            req.on('data', function (data) {
-                body += data;
-
-                if (body.length > 1e6) {
-                    request.connection.destroy();
-                }
-            });
-            req.on('end', function () {
-                var post = qs.parse(body);
-
-                // Data
-                var key = Object.keys(post)[0];
-
-                if (key in MS.REGIONS) {
-                    // Send if region exists
-                    post = MS.getServer(key);
-                } else {
-                    // Region does not exist!
-                    post = "0.0.0.0";
-                }
-
-                res.setHeader('Access-Control-Allow-Origin', '*');
-                res.writeHead(200);
-                res.end(post);
-            });
-        } else if ((req.method == 'GET') && (req.url = "/info")) {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.writeHead(200);
-            res.end(JSON.stringify(this.info));
-        }
-
-        /*
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.writeHead(200);
-        res.end('127.0.0.1:444');
-        */
-    }.bind(this));
-
-    this.httpServer.listen(this.config.serverPort, function() {
-        console.log("[Master] Listening on port %d", this.config.serverPort);
-    }.bind(this));
+    this.httpServer.listen(this.config.serverPort);
+    this.httpServer.on('error', onError);
+    this.httpServer.on('listening', onListening);
 };
 
 MasterServer.prototype.getName = function() {
     // Gets the name of this server. For use in the console
     return "[Master]";
-}
+};
 
 MasterServer.prototype.getNextID = function() {
     return this.lastID++;
-}
+};
 
 MasterServer.prototype.getServer = function(key) {
     var h = this.REGIONS[key][Math.floor(Math.random() * this.REGIONS[key].length)];
     return h ? h.ip : "0.0.0.0";
-}
+};
 
 MasterServer.prototype.onTick = function() {
     this.info.regions = {};
@@ -271,7 +258,7 @@ MasterServer.prototype.swap = function(id) {
     } else {
         console.log(this.getName()+" Invalid game server selected!");
     }
-}
+};
 
 // Game Server Holder
 
@@ -292,11 +279,11 @@ function holderGS(masterServer,server) {
             max: this.server.config.serverMaxConnections,
             mode: this.server.gameMode.name,
         };
-    }
+    };
 
     this.remove = function() {
         this.server.socketServer.close(); // Remove
-    }
+    };
 
     // Constructor
     this.updatePlayers();
@@ -317,7 +304,7 @@ function holderWS(masterServer,server) {
 
     this.updatePlayers = function () {
 
-    }
+    };
 
     this.remove = function() {
         this.server.terminate();

@@ -300,7 +300,7 @@
                 b && (playerStat[b] = a.text())
             });
         }
-        wjQuery.get("http://127.0.0.1:88/info", function (a) {
+        wjQuery.get("info", function (a) {
             var numPlayers = {};
             for (var region in a.regions) {
                 var d = region.split(":")[0];
@@ -345,7 +345,7 @@
 
     function attemptConnection() {
         console.log("Find " + w + gameMode);
-        wjQuery.ajax("http://127.0.0.1:88/", {
+        wjQuery.ajax(".", {
             error: function () {
                 setTimeout(attemptConnection, 1E3)
             },
@@ -1189,7 +1189,7 @@
     wjQuery.ajax({
         type: "POST",
         dataType: "json",
-        url: "checkdir.php", //Relative or absolute path to response.php file
+        url: "checkdir", //Relative or absolute path to response.php file
         data: data,
         success: function (data) {
             //alert(data["names"]);
@@ -1205,7 +1205,7 @@
         wjQuery.ajax({
             type: "POST",
             dataType: "json",
-            url: "checkdir.php", //Relative or absolute path to response.php file
+            url: "checkdir", //Relative or absolute path to response.php file
             data: data,
             success: function (data) {
                 //alert(data["names"]);
