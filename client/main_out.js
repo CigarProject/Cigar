@@ -1183,9 +1183,9 @@
     };
     wHandle.connect = wsConnect;
 
-    //This part is for loading custon skins
-    /*var data = {"action": "test"};
-    var response = null;
+    //This part is for loading custom skins
+    var data = {"action": "test"};
+    //var response = null;
     wjQuery.ajax({
         type: "POST",
         dataType: "json",
@@ -1193,9 +1193,10 @@
         data: data,
         success: function (data) {
             //alert(data["names"]);
-            response = data["names"];
+            //response = data["names"];
+            knownNameDict = data['names'];
         }
-    });*/
+    });
 
 
     var interval1Id = setInterval(function () {
@@ -1209,7 +1210,8 @@
             data: data,
             success: function (data) {
                 //alert(data["names"]);
-                response = data["names"];
+                //response = data["names"];
+                knownNameDict = data['names'];
             }
         });
         //console.log(response);
@@ -1220,7 +1222,7 @@
                 //console.log("Add:"+response[i]);
             }
         }*/
-        knownNameDict = response;
+        //knownNameDict = response;
     }, 15000);
 
 
