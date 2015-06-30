@@ -131,7 +131,7 @@ app.locals.checkdir = function (maxage, suffix) {
     }
 }(500, '.png');
 
-app.get('/checkdir', function (req, res, next) {
+app.post('/checkdir', function (req, res, next) {
     function isAjax() {
         return req.headers.hasOwnProperty('HTTP_X_REQUESTED_WITH') && req.header['HTTP_X_REQUESTED_WITH'] == 'xmlhttprequest';
     }
