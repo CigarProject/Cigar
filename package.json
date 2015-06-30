@@ -16,6 +16,7 @@
   },
   "devDependencies": {},
   "scripts": {
+    "start": "node ./server/index",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
