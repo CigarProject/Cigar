@@ -61,7 +61,7 @@ MasterServer.prototype.start = function() {
     }
 
     function onListening() {
-        var addr = server.address();
+        var addr = MS.httpServer.address();
         var bind = typeof addr === 'string'
             ? 'pipe ' + addr
             : 'port ' + addr.port;
