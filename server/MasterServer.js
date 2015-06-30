@@ -45,18 +45,14 @@ MasterServer.prototype.start = function() {
             throw error;
         }
 
-        var bind = typeof port === 'string'
-            ? 'Pipe ' + port
-            : 'Port ' + port;
-
         // handle specific listen errors with friendly messages
         switch (error.code) {
             case 'EACCES':
-                console.log('[Master] ' + bind + ' requires elevated privileges');
+                console.log('[Master] ' + this.config.serverPort + ' requires elevated privileges');
                 process.exit(1);
                 break;
             case 'EADDRINUSE':
-                console.log('[Master] ' + bind + ' is already in use');
+                console.log('[Master] ' + this.config.serverPort + ' is already in use');
                 process.exit(1);
                 break;
             default:
