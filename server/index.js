@@ -36,7 +36,7 @@ process.argv.forEach(function(val) {
 });
 
 if (runMaster) {
-    ensureExists(path.join(__dirname, 'client', 'skins'), 0744, function(err) {
+    ensureDirExists(path.join(__dirname, 'client', 'skins'), 0744, function(err) {
         if (err) {
             console.error('Could not create ' + path.join(__dirname, 'client', 'skins'));
             process.exit(1);
