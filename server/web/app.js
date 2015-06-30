@@ -108,39 +108,40 @@ app.locals.checkdir = function (maxage, suffix) {
     var cache = null,
         timestamp = Date.now() - maxage - 1;
 
-    return function () {
+    return function (cb) {
         if (cache == null || (Date.now() - timestamp) > maxage) {
             fs.readdir(path.join(__dirname, '..', '..', 'client', 'skins'), function (err, files) {
                 timestamp = Date.now();
                 if (err) {
                     cache = {action: 'test', err: true};
-                    return cache;
+                    cb(cache);
                 }
                 var tmp = {action: 'test', names: []};
                 for (var i = 0; i < files.length; i++) {
-                    if (files[i].slice(-suffix.length) === suffix) {
+                    if (files[i].length > suffix.length && files[i].slice(-suffix.length) === suffix) {
                         tmp.names.push(files[i].slice(0, -suffix.length));
                     }
                 }
                 cache = tmp;
-                return cache;
+                cb(cache);
             });
         } else {
-            return cache;
+            cb(cache);
         }
     }
 }(500, '.png');
 
 app.post('/checkdir', function (req, res, next) {
     if (req.body.hasOwnProperty('action') && req.body.action == 'test') {
-        var ret = app.locals.checkdir();
-        if (ret.hasOwnProperty(err)) {
-            res.writeHead(500);
-            res.end(JSON.stringify(ret));
-        } else {
-            res.writeHead(200);
-            res.end(JSON.stringify(ret));
-        }
+        var ret = app.locals.checkdir(function (ret) {
+            if (ret.hasOwnProperty('err')) {
+                res.writeHead(500);
+                res.end(JSON.stringify(ret));
+            } else {
+                res.writeHead(200);
+                res.end(JSON.stringify(ret));
+            }
+        });
     }
 });
 
