@@ -1189,7 +1189,7 @@
     wjQuery.ajax({
         type: "POST",
         dataType: "json",
-        url: "checkdir.php", //Relative or absolute path to response.php file
+        url: "checkdir", //Relative or absolute path to response.php file
         data: data,
         success: function (data) {
             //alert(data["names"]);
@@ -1205,7 +1205,7 @@
         wjQuery.ajax({
             type: "POST",
             dataType: "json",
-            url: "checkdir.php", //Relative or absolute path to response.php file
+            url: "checkdir", //Relative or absolute path to response.php file
             data: data,
             success: function (data) {
                 //alert(data["names"]);
