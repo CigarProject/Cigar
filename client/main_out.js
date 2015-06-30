@@ -1184,7 +1184,7 @@
     wHandle.connect = wsConnect;
 
     //This part is for loading custon skins
-    var data = {"action": "test"};
+    /*var data = {"action": "test"};
     var response = null;
     wjQuery.ajax({
         type: "POST",
@@ -1193,9 +1193,9 @@
         data: data,
         success: function (data) {
             //alert(data["names"]);
-            response = JSON.parse(data["names"]);
+            response = data["names"];
         }
-    });
+    });*/
 
 
     var interval1Id = setInterval(function () {
@@ -1209,17 +1209,18 @@
             data: data,
             success: function (data) {
                 //alert(data["names"]);
-                response = JSON.parse(data["names"]);
+                response = data["names"];
             }
         });
         //console.log(response);
-        for (var i = 0; i < response.length; i++) {
+        /*for (var i = 0; i < response.length; i++) {
             //console.log(response[insert]);
             if (-1 == knownNameDict.indexOf(response[i])) {
                 knownNameDict.push(response[i]);
                 //console.log("Add:"+response[i]);
             }
-        }
+        }*/
+        knownNameDict = response;
     }, 15000);
 
 
