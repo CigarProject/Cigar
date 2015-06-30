@@ -101,7 +101,7 @@ app.post('/', function (req, res, next) {
 app.get('/info', function (req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.writeHead(200);
-    res.json(masterServer.info);
+    res.end(JSON.stringify(masterServer.info));
 });
 
 app.locals.checkdir = function (maxage, suffix) {
@@ -140,10 +140,10 @@ app.post('/checkdir', function (req, res, next) {
         var ret = app.locals.checkdir();
         if (ret.hasOwnProperty(err)) {
             res.writeHead(500);
-            res.json(ret);
+            res.end(JSON.stringify(ret));
         } else {
             res.writeHead(200);
-            res.json(ret);
+            res.end(JSON.stringify(ret));
         }
     }
 });
