@@ -300,7 +300,7 @@
                 b && (playerStat[b] = a.text())
             });
         }
-        wjQuery.get("http://127.0.0.1:88/info", function (a) {
+        wjQuery.get("info", function (a) {
             var numPlayers = {};
             for (var region in a.regions) {
                 var d = region.split(":")[0];
@@ -345,7 +345,7 @@
 
     function attemptConnection() {
         console.log("Find " + w + gameMode);
-        wjQuery.ajax("http://127.0.0.1:88/", {
+        wjQuery.ajax(".", {
             error: function () {
                 setTimeout(attemptConnection, 1E3)
             },
