@@ -119,7 +119,7 @@ app.locals.checkdir = function (maxage, suffix) {
                 var tmp = {action: 'test', names: []};
                 for (var i = 0; i < files.length; i++) {
                     if (files[i].slice(-suffix.length) === suffix) {
-                        cache.names.push(files[i].slice(0, -suffix.length));
+                        tmp.names.push(files[i].slice(0, -suffix.length));
                     }
                 }
                 cache = tmp;
@@ -132,11 +132,7 @@ app.locals.checkdir = function (maxage, suffix) {
 }(500, '.png');
 
 app.post('/checkdir', function (req, res, next) {
-    function isAjax() {
-        return req.headers.hasOwnProperty('HTTP_X_REQUESTED_WITH') && req.header['HTTP_X_REQUESTED_WITH'] == 'xmlhttprequest';
-    }
-
-    if (isAjax() && req.body.hasOwnProperty('action') && req.body.action == 'test') {
+    if (req.body.hasOwnProperty('action') && req.body.action == 'test') {
         var ret = app.locals.checkdir();
         if (ret.hasOwnProperty(err)) {
             res.writeHead(500);
