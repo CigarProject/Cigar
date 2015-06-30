@@ -23,34 +23,34 @@ app.updateRegions = function () {
     for (var key in masterServer.REGIONS) {
         switch (key) {
             case 'US-Fremont':
-                app.locals.push({val: key, name: 'US West'});
+                app.locals.regions.push({val: key, name: 'US West'});
                 break;
             case 'US-Atlanta':
-                app.locals.push({val: key, name: 'US East'});
+                app.locals.regions.push({val: key, name: 'US East'});
                 break;
             case 'BR-Brazil':
-                app.locals.push({val: key, name: 'South America'});
+                app.locals.regions.push({val: key, name: 'South America'});
                 break;
             case 'EU-London':
-                app.locals.push({val: key, name: 'Europe'});
+                app.locals.regions.push({val: key, name: 'Europe'});
                 break;
             case 'RU-Russia':
-                app.locals.push({val: key, name: 'Russia'});
+                app.locals.regions.push({val: key, name: 'Russia'});
                 break;
             case 'TK-Turkey':
-                app.locals.push({val: key, name: 'Turkey'});
+                app.locals.regions.push({val: key, name: 'Turkey'});
                 break;
             case 'JP-Tokyo':
-                app.locals.push({val: key, name: 'East Asia'});
+                app.locals.regions.push({val: key, name: 'East Asia'});
                 break;
             case 'CN-China':
-                app.locals.push({val: key, name: 'China'});
+                app.locals.regions.push({val: key, name: 'China'});
                 break;
             case 'SG-Singapore':
-                app.locals.push({val: key, name: 'Oceania'});
+                app.locals.regions.push({val: key, name: 'Oceania'});
                 break;
             default:
-                app.locals.push({val: key, name: key.split('-').join(' ')});
+                app.locals.regions.push({val: key, name: key.split('-').join(' ')});
         }
     }
 };
