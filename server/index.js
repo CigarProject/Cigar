@@ -2,6 +2,7 @@
 var Commands = require('./modules/CommandList');
 var GameServer = require('./GameServer');
 var path = require('path');
+var fs = require('fs');
 
 // Init variables
 var runMaster = true;
