@@ -15,135 +15,183 @@
     <link href='https://fonts.googleapis.com/css?family=Ubuntu:700' rel='stylesheet' type='text/css'>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
     <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
-    <script src="Vector2.js"></script>
-    <script src="main_out.js"></script>
-    <style>body {
-        padding: 0;
-        margin: 0;
-        overflow: hidden;
-    }
+    {{#if game}}
+        <script src="Vector2.js"></script>
+        <script src="main_out.js"></script>
+        <style>body {
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+        }
 
-    #canvas {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 100%;
-        height: 100%;
-    }
+        #canvas {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
 
-    .checkbox label {
-        margin-right: 10px;
-    }
+        .checkbox label {
+            margin-right: 10px;
+        }
 
-    form {
-        margin-bottom: 0px;
-    }
+        form {
+            margin-bottom: 0px;
+        }
 
-    .btn-play, .btn-settings, .btn-spectate {
-        display: block;
-        height: 35px;
-    }
+        .btn-play, .btn-settings, .btn-spectate {
+            display: block;
+            height: 35px;
+        }
 
-    .btn-play {
-        width: 85%;
-        float: left;
-    }
+        .btn-play {
+            width: 85%;
+            float: left;
+        }
 
-    .btn-settings {
-        width: 13%;
-        float: right;
-    }
+        .btn-settings {
+            width: 13%;
+            float: right;
+        }
 
-    .btn-spectate {
-        display: block;
-        float: right;
-    }
+        .btn-spectate {
+            display: block;
+            float: right;
+        }
 
-    #adsBottom {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-    }
+        #adsBottom {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
 
-    #adsBottomInner {
-        margin: 0px auto;
-        width: 728px;
-        height: 90px;
-        border: 5px solid white;
-        border-radius: 5px 5px 0px 0px;
-        background-color: #FFFFFF;
-        box-sizing: content-box;
-    }
+        #adsBottomInner {
+            margin: 0px auto;
+            width: 728px;
+            height: 90px;
+            border: 5px solid white;
+            border-radius: 5px 5px 0px 0px;
+            background-color: #FFFFFF;
+            box-sizing: content-box;
+        }
 
-    .region-message {
-        display: none;
-        margin-bottom: 12px;
-        margin-left: 6px;
-        margin-right: 6px;
-        text-align: center;
-    }
+        .region-message {
+            display: none;
+            margin-bottom: 12px;
+            margin-left: 6px;
+            margin-right: 6px;
+            text-align: center;
+        }
 
-    #nick, #locationKnown #region {
-        width: 65%;
-        float: left;
-    }
+        #nick, #locationKnown #region {
+            width: 65%;
+            float: left;
+        }
 
-    #locationUnknown #region {
-        margin-bottom: 15px;
-    }
+        #locationUnknown #region {
+            margin-bottom: 15px;
+        }
 
-    #gamemode, #spectateBtn {
-        width: 33%;
-        float: right;
-    }
+        #gamemode, #spectateBtn {
+            width: 33%;
+            float: right;
+        }
 
-    #helloDialog {
-        width: 350px;
-        background-color: #FFFFFF;
-        margin: 10px auto;
-        border-radius: 15px;
-        padding: 5px 15px 5px 15px;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        margin-right: -50%;
-        -webkit-transform: translate(-50%, -50%);
-        -ms-transform: translate(-50%, -50%);
-        transform: translate(-50%, -50%);
-    }
+        #helloDialog {
+            width: 350px;
+            background-color: #FFFFFF;
+            margin: 10px auto;
+            border-radius: 15px;
+            padding: 5px 15px 5px 15px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin-right: -50%;
+            -webkit-transform: translate(-50%, -50%);
+            -ms-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+        }
 
-    #chat_textbox {
-        -webkit-transition: all .5s ease-in-out;
-        -moz-transition: all .5s ease-in-out;
-        -o-transition: all .5s ease-in-out;
-        transition: all .5s ease-in-out;
-        position: absolute;
-        z-index: 1;
-        bottom: 10px;
-        background: rgba(0, 0, 0, .2);
-        border: 0px;
-        outline: none;
-        color: #FFF;
-        height: 30px;
-        text-indent: 12px;
-        left: 10px;
-        width: 300px;
-    }
+        #chat_textbox {
+            -webkit-transition: all .5s ease-in-out;
+            -moz-transition: all .5s ease-in-out;
+            -o-transition: all .5s ease-in-out;
+            transition: all .5s ease-in-out;
+            position: absolute;
+            z-index: 1;
+            bottom: 10px;
+            background: rgba(0, 0, 0, .2);
+            border: 0px;
+            outline: none;
+            color: #FFF;
+            height: 30px;
+            text-indent: 12px;
+            left: 10px;
+            width: 300px;
+        }
 
-    #chat_textbox:focus {
-        background: rgba(0, 0, 0, .5);
-    }
+        #chat_textbox:focus {
+            background: rgba(0, 0, 0, .5);
+        }
 
-    #a300x250 {
-        width: 300px;
-        height: 250px;
-        background-repeat: no-repeat;
-        background-size: contain;
-        background-position: center center;
-    }</style>
+        #a300x250 {
+            width: 300px;
+            height: 250px;
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center center;
+        }</style>
+    {{/if}}
+    {{#if gallery}}
+        <style type="text/css">
+            li {
+                list-style-type: none;
+                margin-right: 10px;
+                margin-bottom: 10px;
+                float: left;
+            }
+
+            .circular {
+                width: 150px;
+                height: 150px;
+                border-radius: 75px;
+                -webkit-border-radius: 75px;
+                -moz-border-radius: 75px;
+                background-repeat: no-repeat;
+                box-shadow: 0 0 8px rgba(0, 0, 0, .8);
+                -webkit-box-shadow: 0 0 8px rgba(0, 0, 0, .8);
+                -moz-box-shadow: 0 0 8px rgba(0, 0, 0, .8);
+            }
+
+            .circular img {
+                opacity: 0;
+                filter: alpha(opacity=0);
+            }
+
+            .imgDescription {
+                text-align: center;
+                position: relative;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: rgba(29, 106, 154, 0.72);
+                color: #fff;
+                visibility: hidden;
+                opacity: 0;
+                -webkit-transition: visibility opacity 0.2s;
+            }
+
+            .circular:hover .imgDescription {
+                visibility: visible;
+                opacity: 1;
+            }
+        </style>
+    {{/if}}
 </head>
 <body>
 {{{body}}}
