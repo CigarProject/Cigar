@@ -11,7 +11,7 @@ var debug = false;
 
 var selected = function consoleObj() {
     this.server;
-}
+};
 
 // Start msg
 console.log("[Cigar] An open source Agar.io server implementation");

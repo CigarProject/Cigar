@@ -85,16 +85,16 @@ MasterServer.prototype.start = function() {
 MasterServer.prototype.getName = function() {
     // Gets the name of this server. For use in the console
     return "[Master]";
-}
+};
 
 MasterServer.prototype.getNextID = function() {
     return this.lastID++;
-}
+};
 
 MasterServer.prototype.getServer = function(key) {
     var h = this.REGIONS[key][Math.floor(Math.random() * this.REGIONS[key].length)];
     return h ? h.ip : "0.0.0.0";
-}
+};
 
 MasterServer.prototype.onTick = function() {
     this.info.regions = {};
@@ -258,7 +258,7 @@ MasterServer.prototype.swap = function(id) {
     } else {
         console.log(this.getName()+" Invalid game server selected!");
     }
-}
+};
 
 // Game Server Holder
 
@@ -279,11 +279,11 @@ function holderGS(masterServer,server) {
             max: this.server.config.serverMaxConnections,
             mode: this.server.gameMode.name,
         };
-    }
+    };
 
     this.remove = function() {
         this.server.socketServer.close(); // Remove
-    }
+    };
 
     // Constructor
     this.updatePlayers();
@@ -304,7 +304,7 @@ function holderWS(masterServer,server) {
 
     this.updatePlayers = function () {
 
-    }
+    };
 
     this.remove = function() {
         this.server.terminate();
