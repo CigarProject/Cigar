@@ -36,6 +36,12 @@ process.argv.forEach(function(val) {
 });
 
 if (runMaster) {
+    ensureExists(path.join(__dirname, 'client', 'skins'), 0744, function(err) {
+        if (err) {
+            console.error('Could not create ' + path.join(__dirname, 'client', 'skins'));
+            process.exit(1);
+        }
+    });
     // Initialize the master server
     MasterServer = require('./MasterServer');
     masterServer = new MasterServer(selected);
@@ -56,6 +62,20 @@ if (showConsole) {
     var readline = require('readline');
     var in_ = readline.createInterface({ input: process.stdin, output: process.stdout });
     setTimeout(prompt, 100);
+}
+
+// Directory functions
+function ensureDirExists(path, mask, cb) {
+    if (typeof mask == 'function') { // allow the `mask` parameter to be optional
+        cb = mask;
+        mask = 0777;
+    }
+    fs.mkdir(path, mask, function(err) {
+        if (err) {
+            if (err.code == 'EEXIST') cb(null); // ignore the error if the folder already exists
+            else cb(err); // something else went wrong
+        } else cb(null); // successfully created folder
+    });
 }
 
 // Console functions
