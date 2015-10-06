@@ -21,12 +21,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/m-byte/Cigar"
+    "url": "https://github.com/CigarProject/Cigar"
   },
   "author": "Devin Ryan <devin@forairan.com> (http://devin.codes/)",
   "license": "Apache License 2.0",
   "bugs": {
-    "url": "https://github.com/m-byte/Cigar/issues"
+    "url": "https://github.com/CigarProject/Cigar/issues"
   },
-  "homepage": "https://github.com/m-byte/Cigar"
+  "homepage": "https://github.com/CigarProject/Cigar"
 }
