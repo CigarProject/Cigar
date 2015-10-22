@@ -5,13 +5,20 @@ A fully functional open source Agar.io server implementation, written in Node.js
 If you are not interested in additional features and only want to connect with the most recent version of the official client, [Ogar](https://github.com/forairan/Ogar) is probably better suited for you. Cigar was [forked](https://en.wikipedia.org/wiki/Fork_(software_development)) from Ogar in order to add features not supported by the official client.
 
 ## Obtaining and Using
-If you are on Windows, Cigar no longer requires an installation of node.js to run. Simply launch the batch file that is included to run the server. The rest of this section is for non Windows users.
-
-As Cigar is written in Node.js, you must have Node.js and its "ws" module installed to use it (Unless you are using the Windows binary). You can usually download Node using your distribution's package manager (for *nix-like systems), or from [the Node website](http://nodejs.org). To install the "ws" module that is required, open up your system command line (cmd for windows, terminal for mac) and type "npm install ws". If you are on Linux, you can use the install script which would also automatically install node.js and ws. 
+As Cigar is written in Node.js, you must have Node.js and some dependencies installed to use it. You can usually download Node using your distribution's package manager (for *nix-like systems), or from [the Node website](http://nodejs.org). If you have git installed, download Cigar as follows:
 
 ```sh
 ~$ git clone git://github.com/CigarProject/Cigar.git Cigar
-~$ npm install ./Cigar
+```
+
+Otherwise download it using the `Download zip` button on the right side. Next, you'll have to cd into the directory. If you downloaded it without using git, you'll have to adjust the path.
+```sh
+~$ cd Cigar
+```
+
+Now, you can install all dependencies and start Cigar:
+```sh
+~$ npm install
 ~$ npm start
 ```
 
