@@ -28,7 +28,7 @@ function GameServer(realmID,confile) {
     this.nodesPlayer = []; // Nodes controlled by players
 
     this.currentFood = 0;
-    this.movingNodes = []; // For move engine
+    this.movingNodes = []; // F
     this.leaderboard = [];
     this.lb_packet = new ArrayBuffer(0); // Leaderboard packet
 
