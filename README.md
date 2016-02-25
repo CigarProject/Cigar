@@ -21,7 +21,8 @@ Otherwise download it using the `Download zip` button on the right side. Next, y
 
 Now on different operating systems, you're going to have to run a different file. If you are on Linux, run the following commands:
 
-```sh install_modules.sh```
+```
+sh install_modules.sh```
 
 And on windows it would running the install_modules.bat file.
 
