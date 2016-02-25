@@ -94,9 +94,6 @@ function GameServer(realmID, confile) {
     // Parse config
     this.loadConfig(confile);
 
-    // Gamemodes
-    this.gameMode = Gamemode.get(this.config.serverGamemode);
-
     // Colors
     this.colors = [{
         'r': 235,
@@ -156,6 +153,8 @@ function GameServer(realmID, confile) {
 module.exports = GameServer;
 
 GameServer.prototype.start = function() {
+    // Loads gamemodes and config
+    this.gameMode = Gamemode.get(this.config.serverGamemode);
     // Gamemode configurations
     this.gameMode.onServerInit(this);
 

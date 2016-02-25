@@ -105,11 +105,13 @@ Commands.list = {
         var key = split[1];
         var value = split[2];
 
-        // Check if int/float
-        if (value.indexOf('.') != -1) {
-            value = parseFloat(value);
-        } else {
-            value = parseInt(value);
+        if (typeof value != 'undefined') {
+            // Check if int/float
+            if (value.indexOf('.') != -1) {
+                value = parseFloat(value);
+            } else {
+                value = parseInt(value);
+            }
         }
 
         if (typeof gameServer.config[key] != 'undefined') {
