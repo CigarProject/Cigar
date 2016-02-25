@@ -53,6 +53,7 @@ function GameServer(realmID, confile) {
         serverBots: 0, // Amount of player bots to spawn
         serverViewBase: 1024, // Base view distance of players. Warning: high values may cause lag
         serverLeaderboardLength: 10, // Maximum number of people on leaderboard
+        serverMaxConnectionIP: 3, // Max amount of connections per IP
         useWithMaster: false, // Advanced.
         masterIP: "127.0.0.1", // Advanced.
         masterCommands: false, // Advanced.
@@ -203,6 +204,17 @@ GameServer.prototype.start = function() {
     });
 
     function connectionEstablished(ws) {
+        if (this.config.serverMaxConnectionIP > 0) {
+            for (var cons = 1, i = 0, llen = this.clients.length; i < llen; i++) {
+                if (this.clients[i].remoteAddress == ws._socket.remoteAddress) {
+                    cons++;
+                }
+            }
+            if (cons > this.config.serverMaxConnectionIP ) {
+                ws.close();
+                return;
+            }
+        }
         if (this.clients.length > this.config.serverMaxConnections) { // Server full
             ws.close();
             console.log("[Game:" + this.realmID + "] Client tried to connect, but server player limit has been reached!");
