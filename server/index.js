@@ -14,9 +14,14 @@ var debug = false;
 var selected = function consoleObj() {
     this.server;
 };
-
 // Start msg
-console.log("[Cigar] An open source Agar.io server implementation");
+console.log("  ____ _                       ____  _");
+console.log(" / ___(_) __ _  __ _ _ __     |  _ \\| |_   _ ___ ");
+console.log("| |   | |/ _` |/ _` | '__|____| |_) | | | | / __|");
+console.log("| |___| | (_| | (_| | | |_____|  __/| | |_| \\__ \\");
+console.log(" \\____|_|\\__, |\\__,_|_|       |_|   |_|\\__,_|___/");
+console.log("         |___/ - Project by MastaCoder");
+console.log("-------------------------------------------------------");
 
 // Handle arguments
 process.argv.forEach(function(val) {
@@ -51,7 +56,7 @@ if (runMaster) {
 } else {
     // Initialize the game server
     GameServer = require('./GameServer');
-    var gameServer = new GameServer(1,'./gameserver.ini');
+    var gameServer = new GameServer(1, './gameserver.ini');
     gameServer.start();
     gameServer.debug = debug; // Debug stuff
     // Add command handler
@@ -62,7 +67,10 @@ if (runMaster) {
 // Initialize the server console
 if (showConsole) {
     var readline = require('readline');
-    var in_ = readline.createInterface({ input: process.stdin, output: process.stdout });
+    var in_ = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
     setTimeout(prompt, 100);
 }
 
@@ -83,10 +91,10 @@ function ensureDirExists(path, mask, cb) {
 // Console functions
 
 function prompt() {
-    in_.question("<"+selected.server.realmID+">", function(str) {
-    	parseCommands(str);
+    in_.question("<" + selected.server.realmID + ">", function(str) {
+        parseCommands(str);
         return prompt(); // Too lazy to learn async
-    });	
+    });
 };
 
 function parseCommands(str) {
@@ -100,14 +108,14 @@ function parseCommands(str) {
     if ((typeof selected.server.send != 'undefined') && (first != "select")) {
         selected.server.send(str);
         return;
-    } 
+    }
 
     // Get command function
     var execute = selected.server.commands[first];
 
     if (typeof execute != 'undefined') {
-        execute(selected.server,split,masterServer);
+        execute(selected.server, split, masterServer);
     } else {
-        console.log(selected.server.getName()+" Invalid Command!");
+        console.log(selected.server.getName() + " Invalid Command!");
     }
 };

@@ -2,6 +2,7 @@
 var WebSocket = require('ws');
 var fs = require("fs");
 var ini = require('./modules/ini.js');
+var http = require('http');
 
 // Project imports
 var Packet = require('./packet');
@@ -12,7 +13,7 @@ var Gamemode = require('./gamemodes');
 var BotLoader = require('./ai/BotLoader.js');
 
 // GameServer implementation
-function GameServer(realmID,confile) {
+function GameServer(realmID, confile) {
     // Master server stuff
     this.realmID = realmID;
     this.masterServer;
@@ -44,15 +45,18 @@ function GameServer(realmID,confile) {
 
     // Config
     this.config = { // Border - Right: X increases, Down: Y increases (as of 2015-05-20)
+        serverName: "Cigar-Plus", // Name of the server for stats
         serverMaxConnections: 64, // Maximum amount of connections to the server.
         serverPort: 443, // Server port
+        serverStatsPort: 88, // Port for stats server. Having a negative number will disable the stats server.
+        serverStatsUpdate: 60, // Amount of seconds per update for the server stats
         serverGamemode: 0, // Gamemode, 0 = FFA, 1 = Teams
         serverBots: 0, // Amount of player bots to spawn
         serverViewBase: 1024, // Base view distance of players. Warning: high values may cause lag
-        useWithMaster: false,
-        masterIP: "127.0.0.1",
-        masterCommands: false,
-        masterUpdate: 45,
+        useWithMaster: false, // Advanced.
+        masterIP: "127.0.0.1", // Advanced.
+        masterCommands: false, // Advanced.
+        masterUpdate: 45, // Advanced.
         borderLeft: 0, // Left border of map (Vanilla value: 0)
         borderRight: 6000, // Right border of map (Vanilla value: 11180.3398875)
         borderTop: 0, // Top border of map (Vanilla value: 0)
@@ -94,20 +98,55 @@ function GameServer(realmID,confile) {
     this.gameMode = Gamemode.get(this.config.serverGamemode);
 
     // Colors
-    this.colors = [
-        {'r':235, 'g': 75, 'b':  0},
-        {'r':225, 'g':125, 'b':255},
-        {'r':180, 'g':  7, 'b': 20},
-        {'r': 80, 'g':170, 'b':240},
-        {'r':180, 'g': 90, 'b':135},
-        {'r':195, 'g':240, 'b':  0},
-        {'r':150, 'g': 18, 'b':255},
-        {'r': 80, 'g':245, 'b':  0},
-        {'r':165, 'g': 25, 'b':  0},
-        {'r': 80, 'g':145, 'b':  0},
-        {'r': 80, 'g':170, 'b':240},
-        {'r': 55, 'g': 92, 'b':255},
-    ];
+    this.colors = [{
+        'r': 235,
+        'g': 75,
+        'b': 0
+    }, {
+        'r': 225,
+        'g': 125,
+        'b': 255
+    }, {
+        'r': 180,
+        'g': 7,
+        'b': 20
+    }, {
+        'r': 80,
+        'g': 170,
+        'b': 240
+    }, {
+        'r': 180,
+        'g': 90,
+        'b': 135
+    }, {
+        'r': 195,
+        'g': 240,
+        'b': 0
+    }, {
+        'r': 150,
+        'g': 18,
+        'b': 255
+    }, {
+        'r': 80,
+        'g': 245,
+        'b': 0
+    }, {
+        'r': 165,
+        'g': 25,
+        'b': 0
+    }, {
+        'r': 80,
+        'g': 145,
+        'b': 0
+    }, {
+        'r': 80,
+        'g': 170,
+        'b': 240
+    }, {
+        'r': 55,
+        'g': 92,
+        'b': 255
+    }, ];
 
     // Debug
     this.debug = false;
@@ -121,7 +160,10 @@ GameServer.prototype.start = function() {
     this.gameMode.onServerInit(this);
 
     // Start the server
-    this.socketServer = new WebSocket.Server({ port: this.config.serverPort, perMessageDeflate: false}, function() {
+    this.socketServer = new WebSocket.Server({
+        port: this.config.serverPort,
+        perMessageDeflate: false
+    }, function() {
         // Spawn starting food
         this.startingFood();
 
@@ -129,15 +171,15 @@ GameServer.prototype.start = function() {
         setInterval(this.mainLoop.bind(this), 1);
 
         // Done
-        console.log("[Game:"+this.realmID+"] Game Server started at port %d", this.config.serverPort);
-        console.log("[Game:"+this.realmID+"] Current game mode is "+this.gameMode.name);
+        console.log("[Game:" + this.realmID + "] Game Server started at port %d", this.config.serverPort);
+        console.log("[Game:" + this.realmID + "] Current game mode is " + this.gameMode.name);
 
         // Player bots (Experimental)
         if (this.config.serverBots > 0) {
-            for (var i = 0;i < this.config.serverBots;i++) {
+            for (var i = 0; i < this.config.serverBots; i++) {
                 this.bots.addBot();
             }
-            console.log("[Game:"+this.realmID+"] Loaded "+this.config.serverBots+" player bots");
+            console.log("[Game:" + this.realmID + "] Loaded " + this.config.serverBots + " player bots");
         }
     }.bind(this));
 
@@ -146,14 +188,14 @@ GameServer.prototype.start = function() {
     // Properly handle errors because some people are too lazy to read the readme
     this.socketServer.on('error', function err(e) {
         switch (e.code) {
-            case "EADDRINUSE": 
+            case "EADDRINUSE":
                 console.log("[Error] Server could not bind to port! Please close out of Skype or change 'serverPort' in gameserver.ini to a different number.");
                 break;
-            case "EACCES": 
+            case "EACCES":
                 console.log("[Error] Please make sure you are running Ogar with root privileges.");
                 break;
             default:
-                console.log("[Error] Unhandled error code: "+e.code);
+                console.log("[Error] Unhandled error code: " + e.code);
                 break;
         }
         process.exit(1); // Exits the program
@@ -162,7 +204,7 @@ GameServer.prototype.start = function() {
     function connectionEstablished(ws) {
         if (this.clients.length > this.config.serverMaxConnections) { // Server full
             ws.close();
-            console.log("[Game:"+this.realmID+"] Client tried to connect, but server player limit has been reached!");
+            console.log("[Game:" + this.realmID + "] Client tried to connect, but server player limit has been reached!");
             return;
         } else if (this.banned.indexOf(ws._socket.remoteAddress) != -1) { // Banned
             ws.close();
@@ -177,14 +219,14 @@ GameServer.prototype.start = function() {
                 if (msg.charAt(0) == 'H') {
                     ws.gameServer.realmID = parseInt(msg.split('Hi')[1]);
                     ws.send('Hello'); // Response
-                    console.log(ws.gameServer.getName()+" Connected to master server");
+                    console.log(ws.gameServer.getName() + " Connected to master server");
                     // Send stats
                     var stats = {
                         players: ws.gameServer.clients.length,
                         max: ws.gameServer.config.serverMaxConnections,
                         mode: ws.gameServer.gameMode.name,
                     };
-                    ws.gameServer.masterServer.send(JSON.stringify(stats)); 
+                    ws.gameServer.masterServer.send(JSON.stringify(stats));
                     // Connection established
                     if (ws.gameServer.config.masterCommands) {
                         // Override
@@ -192,9 +234,9 @@ GameServer.prototype.start = function() {
                             var split = msg.split(' ');
                             var execute = ws.gameServer.commands[split[0]];
                             if (execute) {
-                                execute(ws.gameServer,split);
+                                execute(ws.gameServer, split);
                             } else {
-                                console.log(ws.gameServer.getName()+" Invalid command!");
+                                console.log(ws.gameServer.getName() + " Invalid command!");
                             }
                         });
                     } else {
@@ -214,12 +256,12 @@ GameServer.prototype.start = function() {
                     };
                     this.masterServer.send(JSON.stringify(stats));
                 } catch (e) {
-                    console.log(this.getName()+" Master server disconnected!");
+                    console.log(this.getName() + " Master server disconnected!");
                     clearInterval(this.masterServer.timer);
                     this.masterServer.close();
                     this.masterServer = null;
                 }
-            }.bind(this), this.config.masterUpdate * 1000); 
+            }.bind(this), this.config.masterUpdate * 1000);
             return;
         }
 
@@ -237,7 +279,9 @@ GameServer.prototype.start = function() {
                 }
 
                 cell.disconnect = this.server.config.playerDisconnectTime;
-                cell.calcMove = function() {return;}; // Clear function so that the cell cant move
+                cell.calcMove = function() {
+                    return;
+                }; // Clear function so that the cell cant move
                 //this.server.removeNode(cell);
             }
 
@@ -254,18 +298,20 @@ GameServer.prototype.start = function() {
         ws.packetHandler = new PacketHandler(this, ws);
         ws.on('message', ws.packetHandler.handleMessage.bind(ws.packetHandler));
 
-        var bindObject = { server: this, socket: ws };
+        var bindObject = {
+            server: this,
+            socket: ws
+        };
         ws.on('error', close.bind(bindObject));
         ws.on('close', close.bind(bindObject));
         this.clients.push(ws);
-
     }
-
+    this.startStatsServer(this.config.serverStatsPort);
 };
 
 GameServer.prototype.getName = function() {
     // Gets the name of this server. For use in the console
-    return "[Game:"+this.realmID+"]";
+    return "[Game:" + this.realmID + "]";
 }
 
 GameServer.prototype.getMode = function() {
@@ -319,7 +365,7 @@ GameServer.prototype.addNode = function(node) {
     node.onAdd(this);
 
     // Add to visible nodes
-    for (var i = 0; i < this.clients.length;i++) {
+    for (var i = 0; i < this.clients.length; i++) {
         client = this.clients[i].playerTracker;
         if (!client) {
             continue;
@@ -327,7 +373,7 @@ GameServer.prototype.addNode = function(node) {
 
         // client.nodeAdditionQueue is only used by human players, not bots
         // for bots it just gets collected forever, using ever-increasing amounts of memory
-        if ('_socket' in client.socket && node.visibleCheck(client.viewBox,client.centerPos)) {
+        if ('_socket' in client.socket && node.visibleCheck(client.viewBox, client.centerPos)) {
             client.nodeAdditionQueue.push(node);
         }
     }
@@ -350,7 +396,7 @@ GameServer.prototype.removeNode = function(node) {
     node.onRemove(this);
 
     // Animation when eating
-    for (var i = 0; i < this.clients.length;i++) {
+    for (var i = 0; i < this.clients.length; i++) {
         client = this.clients[i].playerTracker;
         if (!client) {
             continue;
@@ -412,7 +458,7 @@ GameServer.prototype.mainLoop = function() {
             // Update leaderboard with the gamemode's method
             this.leaderboard = [];
             this.gameMode.updateLB(this);
-            this.lb_packet = new Packet.UpdateLeaderboard(this.leaderboard,this.gameMode.packetLB);
+            this.lb_packet = new Packet.UpdateLeaderboard(this.leaderboard, this.gameMode.packetLB);
 
             this.tickMain = 0; // Reset
         }
@@ -441,7 +487,7 @@ GameServer.prototype.startingFood = function() {
 };
 
 GameServer.prototype.updateFood = function() {
-    var toSpawn = Math.min(this.config.foodSpawnAmount,(this.config.foodMaxAmount-this.currentFood));
+    var toSpawn = Math.min(this.config.foodSpawnAmount, (this.config.foodMaxAmount - this.currentFood));
     for (var i = 0; i < toSpawn; i++) {
         this.spawnFood();
     }
@@ -455,20 +501,23 @@ GameServer.prototype.spawnFood = function() {
     this.currentFood++;
 };
 
-GameServer.prototype.spawnPlayer = function(player,pos,mass) {
-	if (pos == null) { // Get random pos
-		pos = this.getRandomPosition();
-	}
-	if (mass == null) { // Get starting mass
-		mass = this.config.playerStartMass;
-	}
-	
+GameServer.prototype.spawnPlayer = function(player, pos, mass) {
+    if (pos == null) { // Get random pos
+        pos = this.getRandomPosition();
+    }
+    if (mass == null) { // Get starting mass
+        mass = this.config.playerStartMass;
+    }
+
     // Spawn player and add to world
     var cell = new Entity.PlayerCell(this.getNextNodeId(), player, pos, mass);
     this.addNode(cell);
 
     // Set initial mouse coords
-    player.mouse = {x: pos.x, y: pos.y};
+    player.mouse = {
+        x: pos.x,
+        y: pos.y
+    };
 };
 
 GameServer.prototype.virusCheck = function() {
@@ -527,7 +576,7 @@ GameServer.prototype.updateMoveEngine = function() {
         var cell = this.nodesPlayer[i];
 
         // Do not move cells that have already been eaten or have collision turned off
-        if ((!cell) || (cell.ignoreCollision)){
+        if ((!cell) || (cell.ignoreCollision)) {
             continue;
         }
 
@@ -537,7 +586,7 @@ GameServer.prototype.updateMoveEngine = function() {
 
         // Check if cells nearby
         var list = this.getCellsInRange(cell);
-        for (var j = 0; j < list.length ; j++) {
+        for (var j = 0; j < list.length; j++) {
             var check = list[j];
 
             // if we're deleting from this.nodesPlayer, fix outer loop variables; we need to update its length, and maybe 'i' too
@@ -549,7 +598,7 @@ GameServer.prototype.updateMoveEngine = function() {
             }
 
             // Consume effect
-            check.onConsume(cell,this);
+            check.onConsume(cell, this);
 
             // Remove cell
             check.setKiller(cell);
@@ -613,13 +662,13 @@ GameServer.prototype.splitCells = function(client) {
         // Get angle
         var deltaY = client.mouse.y - cell.position.y;
         var deltaX = client.mouse.x - cell.position.x;
-        var angle = Math.atan2(deltaX,deltaY);
+        var angle = Math.atan2(deltaX, deltaY);
 
         // Get starting position
-        var size = cell.getSize()/2;
+        var size = cell.getSize() / 2;
         var startPos = {
-            x: cell.position.x + ( size * Math.sin(angle) ),
-            y: cell.position.y + ( size * Math.cos(angle) )
+            x: cell.position.x + (size * Math.sin(angle)),
+            y: cell.position.y + (size * Math.cos(angle))
         };
         // Calculate mass and speed of splitting cell
         var splitSpeed = cell.getSpeed() * 6;
@@ -628,7 +677,7 @@ GameServer.prototype.splitCells = function(client) {
         // Create cell
         var split = new Entity.PlayerCell(this.getNextNodeId(), client, startPos, newMass);
         split.setAngle(angle);
-        split.setMoveEngineData(splitSpeed, 32, 0.85); 
+        split.setMoveEngineData(splitSpeed, 32, 0.85);
         split.calcMergeTime(this.config.playerRecombineTime);
 
         // Add to moving cells list
@@ -651,13 +700,13 @@ GameServer.prototype.ejectMass = function(client) {
 
         var deltaY = client.mouse.y - cell.position.y;
         var deltaX = client.mouse.x - cell.position.x;
-        var angle = Math.atan2(deltaX,deltaY);
+        var angle = Math.atan2(deltaX, deltaY);
 
         // Get starting position
         var size = cell.getSize() + 5;
         var startPos = {
-            x: cell.position.x + ( (size + this.config.ejectMass) * Math.sin(angle) ),
-            y: cell.position.y + ( (size + this.config.ejectMass) * Math.cos(angle) )
+            x: cell.position.x + ((size + this.config.ejectMass) * Math.sin(angle)),
+            y: cell.position.y + ((size + this.config.ejectMass) * Math.cos(angle))
         };
 
         // Remove mass from parent cell
@@ -688,7 +737,7 @@ GameServer.prototype.newCellVirused = function(client, parent, angle, mass, spee
     newCell.setAngle(angle);
     newCell.setMoveEngineData(speed, 10);
     newCell.calcMergeTime(this.config.playerRecombineTime);
-    newCell.ignoreCollision = true;  // Turn off collision
+    newCell.ignoreCollision = true; // Turn off collision
 
     // Add to moving cells list
     this.addNode(newCell);
@@ -722,7 +771,7 @@ GameServer.prototype.getCellsInRange = function(cell) {
 
     // Loop through all cells that are visible to the cell. There is probably a more efficient way of doing this but whatever
     var len = cell.owner.visibleNodes.length;
-    for (var i = 0;i < len;i++) {
+    for (var i = 0; i < len; i++) {
         var check = cell.owner.visibleNodes[i];
 
         if (typeof check === 'undefined') {
@@ -745,7 +794,7 @@ GameServer.prototype.getCellsInRange = function(cell) {
         }
 
         // AABB Collision
-        if (!check.collisionCheck(bottomY,topY,rightX,leftX)) {
+        if (!check.collisionCheck(bottomY, topY, rightX, leftX)) {
             continue;
         }
 
@@ -793,7 +842,7 @@ GameServer.prototype.getCellsInRange = function(cell) {
         // Eating range
         var xs = Math.pow(check.position.x - cell.position.x, 2);
         var ys = Math.pow(check.position.y - cell.position.y, 2);
-        var dist = Math.sqrt( xs + ys );
+        var dist = Math.sqrt(xs + ys);
 
         var eatingRange = cell.getSize() - check.getEatingRange(); // Eating range = radius of eating cell + 40% of the radius of the cell being eaten
         if (dist > eatingRange) {
@@ -823,14 +872,14 @@ GameServer.prototype.getNearestVirus = function(cell) {
 
     // Loop through all viruses on the map. There is probably a more efficient way of doing this but whatever
     var len = this.nodesVirus.length;
-    for (var i = 0;i < len;i++) {
+    for (var i = 0; i < len; i++) {
         var check = this.nodesVirus[i];
 
         if (typeof check === 'undefined') {
             continue;
         }
 
-        if (!check.collisionCheck(bottomY,topY,rightX,leftX)) {
+        if (!check.collisionCheck(bottomY, topY, rightX, leftX)) {
             continue;
         }
 
@@ -880,11 +929,53 @@ GameServer.prototype.loadConfig = function(confile) {
         }
     } catch (err) {
         // No config
-        console.log("[Game:"+this.realmID+"] Config not found... Generating new config");
+        console.log("[Game:" + this.realmID + "] Config not found... Generating new config");
 
         // Create a new config
         fs.writeFileSync(confile, ini.stringify(this.config));
     }
+};
+
+GameServer.prototype.startStatsServer = function(port) {
+    // Do not start the server if the port is negative
+    if (port < 1) {
+        return;
+    }
+
+    // Create stats
+    this.stats = "Test";
+    this.getStats();
+
+    // Show stats
+    this.httpServer = http.createServer(function(req, res) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.writeHead(200);
+        res.end(this.stats);
+    }.bind(this));
+
+    this.httpServer.listen(port, function() {
+        // Stats server
+        console.log("[Game:" + this.realmID + "] Loaded stats server on port " + port);
+        setInterval(this.getStats.bind(this), this.config.serverStatsUpdate * 1000);
+    }.bind(this));
+};
+
+GameServer.prototype.getStats = function() {
+    var players = 0;
+    this.clients.forEach(function(client) {
+        if (client.playerTracker && client.playerTracker.cells.length > 0)
+            players++;
+    });
+    var s = {
+        'name': this.config.serverName,
+        'current_players': this.clients.length,
+        'alive': players,
+        'spectators': this.clients.length - players,
+        'max_players': this.config.serverMaxConnections,
+        'gamemode': this.gameMode.name,
+        'start_time': this.startTime
+    };
+    this.stats = JSON.stringify(s);
 };
 
 GameServer.prototype.switchSpectator = function(player) {
@@ -902,17 +993,17 @@ GameServer.prototype.switchSpectator = function(player) {
                 oldPlayer = 0;
                 continue;
             }
-            
+
             if (!this.clients[oldPlayer]) {
                 // Break out of loop in case client tries to spectate an undefined player
                 player.spectatedPlayer = -1;
                 break;
             }
-            
+
             if (this.clients[oldPlayer].playerTracker.cells.length > 0) {
                 break;
             }
-            
+
             oldPlayer++;
             count++;
         }
@@ -927,23 +1018,15 @@ GameServer.prototype.switchSpectator = function(player) {
 // Custom prototype functions
 WebSocket.prototype.sendPacket = function(packet) {
     // Send only if the buffer is empty
-    if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0) && packet.build) {
+    if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0)) {
         try {
             this.send(packet.build(), {binary: true});
         } catch (e) {
-            console.log("[Error] "+e);
-            // Remove socket
-            this.emit('close');
-            this.removeAllListeners();
+            // console.log("\u001B[31m[Socket Error] " + e + "\u001B[0m");
         }
-    } else if (!packet.build) {
-        // Do nothing
-        //console.log("[Warning] There was an error sending the packet!");
     } else {
-        //console.log("[Warning] There was an error sending the packet to "+this.playerTracker.name);
         // Remove socket
         this.emit('close');
         this.removeAllListeners();
     }
 };
-

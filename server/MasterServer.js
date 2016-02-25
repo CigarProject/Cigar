@@ -22,7 +22,9 @@ function MasterServer(selected) {
         serverPort: 88,
         gameserverPort: 445,
         updateTime: 60,
-        regions: {"US-Fremont":1},
+        regions: {
+            "US-Fremont": 1
+        },
     };
 
     this.REGIONS;
@@ -30,7 +32,11 @@ function MasterServer(selected) {
     this.info = {
         "MASTER_START": +new Date,
         "regions": {
-            "US-Fremont":{"numPlayers":0,"numRealms":1,"numServers":1},
+            "US-Fremont": {
+                "numPlayers": 0,
+                "numRealms": 1,
+                "numServers": 1
+            },
         },
     };
 }
@@ -62,14 +68,13 @@ MasterServer.prototype.start = function() {
 
     function onListening() {
         var addr = MS.httpServer.address();
-        var bind = typeof addr === 'string'
-            ? 'pipe ' + addr
-            : 'port ' + addr.port;
+        var bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
+        console.log('-------------------------------------------------------');
         console.log('[Master] Listening on ' + bind);
     }
 
     this.loadConfig();
-    setInterval(this.onTick.bind(this),this.config.updateTime * 1000);
+    setInterval(this.onTick.bind(this), this.config.updateTime * 1000);
     this.onTick(); // Init
     MS = this;
 
@@ -99,7 +104,11 @@ MasterServer.prototype.getServer = function(key) {
 MasterServer.prototype.onTick = function() {
     this.info.regions = {};
     for (var key in this.REGIONS) {
-        var json = {"numPlayers":this.getPlayerAmount(this.REGIONS[key]),"numRealms":this.REGIONS[key].length,"numServers":this.REGIONS[key].length};
+        var json = {
+            "numPlayers": this.getPlayerAmount(this.REGIONS[key]),
+            "numRealms": this.REGIONS[key].length,
+            "numServers": this.REGIONS[key].length
+        };
         this.info.regions[key] = json;
     }
 };
@@ -152,24 +161,24 @@ MasterServer.prototype.loadConfig = function() {
 
 // Server management
 
-MasterServer.prototype.addServer = function(ip,port,reg) {
+MasterServer.prototype.addServer = function(ip, port, reg) {
     try {
-        var ws = new WebSocket('ws://'+ip+':'+port);
+        var ws = new WebSocket('ws://' + ip + ':' + port);
         var id;
 
         ws.on('error', function err(er) {
             console.log("[Master] Error connecting to a game server!");
         });
-        
+
         ws.on('open', function open() {
             id = MS.getNextID(); // Get new ID
-            ws.send('Hi'+id);
+            ws.send('Hi' + id);
         });
 
         ws.on('message', function(data, flags) {
             if (data == 'Hello') {
                 // Add to server list
-                var h = new holderWS(MS,ws); // Server holder
+                var h = new holderWS(MS, ws); // Server holder
 
                 // Server stuff
                 ws.holder = h;
@@ -199,14 +208,14 @@ MasterServer.prototype.addServer = function(ip,port,reg) {
         return;
     }
 
-    
+
 };
 
-MasterServer.prototype.createServer = function(key,mode) {
+MasterServer.prototype.createServer = function(key, mode) {
     var id = this.getNextID(); // Get new ID
 
-    var gs = new GameServer(id,'./gameserver'+id+'.ini');
-    gs.config.serverPort = this.config.gameserverPort+id;
+    var gs = new GameServer(id, './gameserver' + id + '.ini');
+    gs.config.serverPort = this.config.gameserverPort + id;
     gs.config.serverGamemode = mode;
     gs.start(); // Start server
 
@@ -219,24 +228,24 @@ MasterServer.prototype.createServer = function(key,mode) {
     // Add to region/server list
     this.REGIONS[key].push(h);
     h.server.region = key; // Gameserver variable
-    this.gameServers[id - 1] = h; 
+    this.gameServers[id - 1] = h;
 };
 
-MasterServer.prototype.removeServer = function(id,log) {
+MasterServer.prototype.removeServer = function(id, log) {
     // Game server
     var h = this.gameServers[id - 1];
     if (h) {
-        this.gameServers.splice((id - 1),1,null); // Replace with null to keep the array in order
+        this.gameServers.splice((id - 1), 1, null); // Replace with null to keep the array in order
 
         var index = this.REGIONS[h.server.region].indexOf(h);
         if (index > -1) { // Remove from region array
-            this.REGIONS[h.server.region].splice(index,1);
+            this.REGIONS[h.server.region].splice(index, 1);
         }
-        
+
         h.remove(); // Remove
-        if (log) console.log(this.getName()+" Removed Game Server with ID: "+id);
+        if (log) console.log(this.getName() + " Removed Game Server with ID: " + id);
     } else {
-        if (log) console.log(this.getName()+" Invalid game server selected!");
+        if (log) console.log(this.getName() + " Invalid game server selected!");
     }
 };
 
@@ -246,7 +255,7 @@ MasterServer.prototype.swap = function(id) {
     if (id == 0) {
         // User wants to slect the master server
         this.selected.server = this;
-        console.log(this.getName()+" Switched to Master Server");
+        console.log(this.getName() + " Switched to Master Server");
         return;
     }
 
@@ -254,15 +263,15 @@ MasterServer.prototype.swap = function(id) {
     var h = this.gameServers[id - 1];
     if (h.server) {
         this.selected.server = h.server;
-        console.log(this.getName()+" Switched to Game Server "+id);
+        console.log(this.getName() + " Switched to Game Server " + id);
     } else {
-        console.log(this.getName()+" Invalid game server selected!");
+        console.log(this.getName() + " Invalid game server selected!");
     }
 };
 
 // Game Server Holder
 
-function holderGS(masterServer,server) {
+function holderGS(masterServer, server) {
     this.server = server;
     this.master = masterServer;
     this.stats = {
@@ -273,7 +282,7 @@ function holderGS(masterServer,server) {
 
     this.ip = masterServer.config.serverIP + ":" + this.server.config.serverPort;
 
-    this.updatePlayers = function () {
+    this.updatePlayers = function() {
         this.stats = {
             players: this.server.clients.length,
             max: this.server.config.serverMaxConnections,
@@ -291,7 +300,7 @@ function holderGS(masterServer,server) {
 
 // Remote Game Server holder
 
-function holderWS(masterServer,server) {
+function holderWS(masterServer, server) {
     this.server = server;
     this.master = masterServer;
     this.stats = {
@@ -302,7 +311,7 @@ function holderWS(masterServer,server) {
 
     this.ip = this.server._socket.remoteAddress + ":" + this.server._socket.remotePort;
 
-    this.updatePlayers = function () {
+    this.updatePlayers = function() {
 
     };
 

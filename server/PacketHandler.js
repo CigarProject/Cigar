@@ -13,7 +13,7 @@ function PacketHandler(gameServer, socket) {
 
 module.exports = PacketHandler;
 
-PacketHandler.prototype.handleMessage = function (message) {
+PacketHandler.prototype.handleMessage = function(message) {
     function stobuf(buf) {
         var length = buf.length;
         var arrayBuf = new ArrayBuffer(length);
@@ -81,14 +81,14 @@ PacketHandler.prototype.handleMessage = function (message) {
             // W Press - Eject mass
             this.pressW = true;
             break;
-        case 255:
+        case 250:
             // Connection Start 
             this.protocol = view.getUint32(1, true);
             // Send SetBorder packet first
             var c = this.gameServer.config;
             this.socket.sendPacket(new Packet.SetBorder(c.borderLeft, c.borderRight, c.borderTop, c.borderBottom));
             break;
-        case 99:
+        case 90:
             var message = "";
             var maxLen = this.gameServer.config.chatMaxMessageLength * 2; // 2 bytes per char
             var offset = 2;
@@ -115,12 +115,108 @@ PacketHandler.prototype.handleMessage = function (message) {
                 this.gameServer.clients[i].sendPacket(packet);
             }
             break;
+        case 255:
+            // Connection Start
+            if (view.byteLength == 5) {
+                var c = this.gameServer.config,
+                    player = 0,
+                    client;
+                for (var i = 0; i < this.gameServer.clients.length; i++) {
+                    client = this.gameServer.clients[i].playerTracker;
+                    if ((client.disconnect <= 0) && (client.spectate == false)) ++player;
+                }
+                // Boot Player if Server Full
+                if (player > c.serverMaxConnections) {
+                    this.socket.sendPacket(new Packet.ServerMsg(93));
+                    this.socket.close();
+                }
+            }
+            break;
+        case 99:
+            var message = "",
+                maxLen = this.gameServer.config.chatMaxMessageLength * 2,
+                offset = 2,
+                flags = view.getUint8(1);
+
+            if (flags & 2) {
+                offset += 4;
+            }
+            if (flags & 4) {
+                offset += 8;
+            }
+            if (flags & 8) {
+                offset += 16;
+            }
+
+            for (var i = offset; i < view.byteLength && i <= maxLen; i += 2) {
+                var charCode = view.getUint16(i, true);
+                if (charCode == 0) {
+                    break;
+                }
+                message += String.fromCharCode(charCode);
+            }
+
+            var zname = wname = this.socket.playerTracker.name;
+            if (wname == "") wname = "Spectator";
+
+            if (this.gameServer.config.serverAdminPass != '') {
+                var passkey = "/rcon " + this.gameServer.config.serverAdminPass + " ";
+                if (message.substr(0, passkey.length) == passkey) {
+                    var cmd = message.substr(passkey.length, message.length);
+                    console.log("\u001B[36m" + wname + ": \u001B[0missued a remote console command: " + cmd);
+                    var split = cmd.split(" "),
+                        first = split[0].toLowerCase(),
+                        execute = this.gameServer.commands[first];
+                    if (typeof execute != 'undefined') {
+                        execute(this.gameServer, split);
+                    } else {
+                        console.log("Invalid Command!");
+                    }
+                    break;
+                } else if (message.substr(0, 6) == "/rcon ") {
+                    console.log("\u001B[36m" + wname + ": \u001B[0missued a remote console command but used a wrong pass key!");
+                    break;
+                }
+            }
+
+            var date = new Date(),
+                hour = date.getHours();
+
+            if ((date - this.socket.playerTracker.cTime) < this.gameServer.config.chatIntervalTime) {
+                var time = 1 + Math.floor(((this.gameServer.config.chatIntervalTime - (date - this.socket.playerTracker.cTime)) / 1000) % 60);
+                // Happens when user tries to spam
+                break;
+            }
+
+            this.socket.playerTracker.cTime = date;
+            var LastMsg;
+            if (message == LastMsg) {
+                ++SpamBlock;
+                if (SpamBlock > 5) this.socket.close();
+                break;
+            }
+            LastMsg = message;
+            SpamBlock = 0;
+
+            hour = (hour < 10 ? "0" : "") + hour;
+            var min = date.getMinutes();
+            min = (min < 10 ? "0" : "") + min;
+            hour += ":" + min;
+
+            var fs = require('fs');
+
+            var packet = new Packet.Chat(this.socket.playerTracker, message);
+            // Send to all clients (broadcast)
+            for (var i = 0; i < this.gameServer.clients.length; i++) {
+                this.gameServer.clients[i].sendPacket(packet);
+            }
+            break;
         default:
             break;
     }
 };
 
-PacketHandler.prototype.setNickname = function (newNick) {
+PacketHandler.prototype.setNickname = function(newNick) {
     var client = this.socket.playerTracker;
     if (client.cells.length < 1) {
         // Set name first
@@ -133,4 +229,3 @@ PacketHandler.prototype.setNickname = function (newNick) {
         client.spectate = false;
     }
 };
-
