@@ -88,6 +88,8 @@ function GameServer(realmID, confile) {
         playerMaxNickLength: 15, // Maximum nick length
         playerDisconnectTime: 60, // The amount of seconds it takes for a player cell to be removed after disconnection (If set to -1, cells are never removed)
         playerSpeed: 30, // Speed of the player cells.
+        playerFDMultiplier: 2, // Fast decay multiplier
+        playerFDMass: 5000, // Mass to start fast decay at.
         tourneyMaxPlayers: 12, // Maximum amount of participants for tournament style game modes
         tourneyPrepTime: 10, // Amount of ticks to wait after all players are ready (1 tick = 1000 ms)
         tourneyEndTime: 30, // Amount of ticks to wait after a player wins (1 tick = 1000 ms)
@@ -925,7 +927,9 @@ GameServer.prototype.updateCells = function() {
         }
 
         // Mass decay
-        if (cell.mass >= this.config.playerMinMassDecay) {
+        if (cell.mass >= this.config.playerFDMass) {
+            cell.mass *= massDecay - (this.config.playerFDMultiplier / 500);
+        } else {
             cell.mass *= massDecay;
         }
     }
