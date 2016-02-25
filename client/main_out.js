@@ -115,15 +115,13 @@
                     break;
 
                 case 13:
-                    if (isTyping) {
+                    if (isTyping || hideChat) {
                         isTyping = false;
                         document.getElementById("chat_textbox").blur();
                         chattxt = document.getElementById("chat_textbox").value;
                         if (chattxt.length > 0) sendChat(chattxt);
                         document.getElementById("chat_textbox").value = "";
-
-                    }
-                    else {
+                    } else {
                         if (!hasOverlay) {
                             document.getElementById("chat_textbox").focus();
                             isTyping = true;
@@ -587,6 +585,7 @@
     function drawChatBoard() {
         //chatCanvas = null;
 
+        if( hideChat ) return;
         chatCanvas = document.createElement("canvas");
         var ctx = chatCanvas.getContext("2d");
         var scaleFactor = Math.min(Math.max(canvasWidth / 1200, 0.75),1); //scale factor = 0.75 to 1
@@ -742,7 +741,7 @@
     }
 
     function sendChat(str) {
-        if (wsIsOpen() && (str.length < 200) && (str.length > 0)) {
+        if (wsIsOpen() && (str.length < 200) && (str.length > 0) && ! hideChat) {
             var msg = prepareData(2 + 2 * str.length);
             var offset = 0;
             msg.setUint8(offset++, 99);
@@ -1095,6 +1094,7 @@
         userScore = 0,
         showDarkTheme = false,
         showMass = false,
+        hideChat = false,
         smoothRender = .4,
         posX = nodeX = ~~((leftPos + rightPos) / 2),
         posY = nodeY = ~~((topPos + bottomPos) / 2),
@@ -1146,6 +1146,14 @@
     wHandle.setSmooth = function (arg) {
         smoothRender = arg ? 2 : .4
     };
+    wHandle.setChatHide = function( arg ) {
+        hideChat = arg;
+        if( hideChat ) {
+            wjQuery('#chat_textbox').hide();
+        } else {
+            wjQuery('#chat_textbox').show();
+        }
+    }
     wHandle.spectate = function () {
         userNickName = null;
         wHandle.isSpectating = true;
