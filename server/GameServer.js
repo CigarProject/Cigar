@@ -44,7 +44,7 @@ function GameServer(realmID, confile) {
     this.tickSpawn = 0; // Used with spawning food
 
     // Config
-    this.config = { // Border - Right: X increases, Down: Y increases (as of 2015-05-20)
+    this.config = {
         serverName: "Cigar-Plus", // Name of the server for stats
         serverMaxConnections: 64, // Maximum amount of connections to the server.
         serverStatsPort: 88, // Port for stats server. Having a negative number will disable the stats server.
@@ -52,6 +52,7 @@ function GameServer(realmID, confile) {
         serverGamemode: 0, // Gamemode, 0 = FFA, 1 = Teams
         serverBots: 0, // Amount of player bots to spawn
         serverViewBase: 1024, // Base view distance of players. Warning: high values may cause lag
+        serverLeaderboardLength: 10, // Maximum number of people on leaderboard
         useWithMaster: false, // Advanced.
         masterIP: "127.0.0.1", // Advanced.
         masterCommands: false, // Advanced.
