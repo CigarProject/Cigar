@@ -47,7 +47,7 @@ function GameServer(realmID, confile) {
     this.config = {
         serverName: "Cigar-Plus", // Name of the server for stats
         serverMaxConnections: 64, // Maximum amount of connections to the server.
-        serverStatsPort: 88, // Port for stats server. Having a negative number will disable the stats server.
+        serverStatsPort: 1600, // Port for stats server. Having a negative number will disable the stats server.
         serverStatsUpdate: 60, // Amount of seconds per update for the server stats
         serverGamemode: 0, // Gamemode, 0 = FFA, 1 = Teams
         serverBots: 0, // Amount of player bots to spawn

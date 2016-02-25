@@ -10,9 +10,7 @@
             <div class="form-group">
                 <input id="nick" class="form-control" placeholder="Nick" maxlength="15"/>
                 <select id="gamemode" class="form-control" onchange="setGameMode($(this).val());" required>
-                    <option selected value="">FFA</option>
-                    <option value=":teams">Teams</option>
-                    <option value=":experimental">Experimental</option>
+                    <option selected value="">Cigar</option>
                 </select>
                 <br clear="both"/>
             </div>
@@ -35,7 +33,7 @@
                 <div>
 
                     <a href="uploads.html" class="btn-primary btn btn-info" role="button">Upload Skins</a>
-                    <a href="gallery" class="btn-primary btn btn-info" role="button">Skins Gallery</a>
+                    <a href="gallery" class="btn-primary btn btn-info gallery" role="button">Skins Gallery</a>
                     <p></p>
                 </div>
 
@@ -113,7 +111,7 @@ Press <b>W</b> to eject some mass<br/>
 <input type="text" id="chat_textbox" maxlength="200"/>
 
 <div style="font-family:'Ubuntu'">&nbsp;</div>
-
+<script>$('#settings, #instructions').toggle();</script>
 <script type="text/javascript">
     $('input').keypress(function(e) {
         if (e.which == '13') {
