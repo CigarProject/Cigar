@@ -15,12 +15,12 @@ var selected = function consoleObj() {
     this.server;
 };
 // Start msg
-console.log("  ____ _                       ____  _");
-console.log(" / ___(_) __ _  __ _ _ __     |  _ \\| |_   _ ___ ");
-console.log("| |   | |/ _` |/ _` | '__|____| |_) | | | | / __|");
-console.log("| |___| | (_| | (_| | | |_____|  __/| | |_| \\__ \\");
-console.log(" \\____|_|\\__, |\\__,_|_|       |_|   |_|\\__,_|___/");
-console.log("         |___/ - Project by MastaCoder");
+console.log("  ____ _                  ____            _           _   ");
+console.log(" / ___(_) __ _  __ _ _ __|  _ \\ _ __ ___ (_) ___  ___| |_ ");
+console.log("| |   | |/ _` |/ _` | '__| |_) | '__/ _ \\| |/ _ \\/ __| __|");
+console.log("| |___| | (_| | (_| | |  |  __/| | | (_) | |  __/ (__| |_ ");
+console.log(" \\____|_|\\__, |\\__,_|_|  |_|   |_|  \\___// |\\___|\\___|\\__|");
+console.log("         |___/ - Better than Ogar!     |__/               ");
 console.log("-------------------------------------------------------");
 
 // Handle arguments
