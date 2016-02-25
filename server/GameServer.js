@@ -39,6 +39,7 @@ function GameServer(realmID, confile) {
 
     // Main loop tick
     this.time = new Date();
+    this.startTime = this.time;
     this.tick = 0; // 1 second ticks of mainLoop
     this.tickMain = 0; // 50 ms ticks, 20 of these = 1 leaderboard update
     this.tickSpawn = 0; // Used with spawning food
@@ -54,6 +55,7 @@ function GameServer(realmID, confile) {
         serverViewBase: 1024, // Base view distance of players. Warning: high values may cause lag
         serverLeaderboardLength: 10, // Maximum number of people on leaderboard
         serverMaxConnectionIP: 3, // Max amount of connections per IP
+        serverRestartTime: 24, // How many hours before server restart
         useWithMaster: false, // Advanced.
         masterIP: "127.0.0.1", // Advanced.
         masterCommands: false, // Advanced.
@@ -474,8 +476,12 @@ GameServer.prototype.mainLoop = function() {
             this.leaderboard = [];
             this.gameMode.updateLB(this);
             this.lb_packet = new Packet.UpdateLeaderboard(this.leaderboard, this.gameMode.packetLB);
-
             this.tickMain = 0; // Reset
+        }
+
+        // Server auto restart
+        if (this.config.serverRestartTime > 0 && ( local - this.startTime ) > ( this.config.serverRestartTime * 3600000 )) {
+            this.exitserver();
         }
 
         // Reset
