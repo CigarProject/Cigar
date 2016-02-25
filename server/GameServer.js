@@ -47,7 +47,6 @@ function GameServer(realmID, confile) {
     this.config = { // Border - Right: X increases, Down: Y increases (as of 2015-05-20)
         serverName: "Cigar-Plus", // Name of the server for stats
         serverMaxConnections: 64, // Maximum amount of connections to the server.
-        serverPort: 443, // Server port
         serverStatsPort: 88, // Port for stats server. Having a negative number will disable the stats server.
         serverStatsUpdate: 60, // Amount of seconds per update for the server stats
         serverGamemode: 0, // Gamemode, 0 = FFA, 1 = Teams
@@ -61,6 +60,8 @@ function GameServer(realmID, confile) {
         borderRight: 6000, // Right border of map (Vanilla value: 11180.3398875)
         borderTop: 0, // Top border of map (Vanilla value: 0)
         borderBottom: 6000, // Bottom border of map (Vanilla value: 11180.3398875)
+        chatMaxMessageLength: 70, // Length of messages in chat
+        chatIntervalTime: 2500, // ms between each message.
         spawnInterval: 20, // The interval between each food cell spawn in ticks (1 tick = 50 ms)
         foodSpawnAmount: 10, // The amount of food to spawn per interval
         foodStartAmount: 100, // The starting amount of food in the map
@@ -89,7 +90,6 @@ function GameServer(realmID, confile) {
         tourneyEndTime: 30, // Amount of ticks to wait after a player wins (1 tick = 1000 ms)
         tourneyAutoFill: 0, // If set to a value higher than 0, the tournament match will automatically fill up with bots after this amount of seconds
         tourneyAutoFillPlayers: 1, // The timer for filling the server with bots will not count down unless there is this amount of real players
-        chatMaxMessageLength: 200, // Maximum message length
     };
     // Parse config
     this.loadConfig(confile);
