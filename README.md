@@ -1,3 +1,5 @@
+Cigar is back and better than ever! M-Byte has made me (MastaCoder) an admin of the repo, I'll be keeping this server up to date and trying to do my best and keep it up!
+
 # Cigar
 A fully functional open source Agar.io server implementation, written in Node.js. Cigar is based on the same code as Ogar, but introduces features that can only be used with unofficial clients.
 
@@ -12,26 +14,30 @@ As Cigar is written in Node.js, you must have Node.js and some dependencies inst
 ```
 
 Otherwise download it using the `Download zip` button on the right side. Next, you'll have to cd into the directory. If you downloaded it without using git, you'll have to adjust the path.
+
 ```sh
 ~$ cd Cigar
 ```
 
-Now, you can install all dependencies and start Cigar:
-```sh
-~$ npm install
-~$ npm start
-```
+Now on different operating systems, you're going to have to run a different file. If you are on Linux, run the following commands:
 
-Currently, Cigar listens on the following addresses and ports:
+'''sh install_modules.sh'''
+
+And on windows it would running the install_modules.bat file.
+
+Now once you have done that, you can run the masterServer or just the gameservers by selecting the right file for your OS and choice of use.
+
+Currently, Cigar listens on the following addresses and ports (by default):
 * *:88 - for the master server
-* *:443 - for the game server
+* *:150x - for the game server
+* *:160x - for the stats server
 
 Please note that on some systems, you may have to run the process as root or otherwise elevate your privileges to allow the process to listen on the needed ports. **If you are getting an EADDRINUSE error, it means that the port required to run Cigar is being used. Usually, Skype is the culprit. To solve this, either close out skype, or change the serverPort value in gameserver.ini to a different port. You will have to change your connection ip to "127.0.0.1:PORT"**
 
-Once the game server is running, you can connect (locally) by going to the agar.io website. Once the game is loaded, in your address bar, replace agar.io with javascript:connect("ws://127.0.0.1:443",""); and press enter.
+Once the gameserver is running, visit the client of your choice and join the server. If you used the MasterServer then you can simply go to 127.0.0.1:88.
 
 ## Configuring Cigar
-Use "gameserver.ini" to modify Cigar's configurations field. Player bots are currently basic and for testing purposes. To use them, change "serverBots" to a value higher than zero in the configuration file. To add/remove bot names, edit the file named "botnames.txt" which is in the same folder as "gameserver.ini". Names should be separated by using the enter key.
+Use "gameserver1.ini" to modify Cigar's configurations field. Player bots are currently basic and for testing purposes. To use them, change "serverBots" to a value higher than zero in the configuration file. To add/remove bot names, edit the file named "botnames.txt" which is in the same folder as "gameserver.ini". Names should be separated by using the enter key.
 
 ## Custom Game modes
 Cigar has support for custom game modes. To switch between game modes, change the value of "serverGamemode" in the configurations file to the selected game mode id and restart the server. The current supported game modes are:
@@ -55,9 +61,9 @@ The current available console commands are listed here. Command names are not ca
    * Prevents anyone with the banned IP from joining.
  - Banlist {clear}
    * Shows a list of currently banned IPs. You can clear the banlist by typing "clear" as the 2nd parameter.
- - Board [String 1] [String 2] [String 3] ...
+ - (Broken) Board [String 1] [String 2] [String 3] ...
    * Replaces the text on the leaderboard with the string text.
- - Boardreset
+ - (Broken) Boardreset
    * Resets the leaderboard to display the proper data for the current gamemode
  - Change [Config setting] [Value]
    * Changes a config setting to a value. Ex. "change serverMaxConnections 32" will change the variable serverMaxConnections to 32. Note that some config values (Like serverGamemode) are parsed before the server starts so changing them mid game will have no effect.
