@@ -35,7 +35,11 @@ PlayerCell.prototype.simpleCollide = function(check,d) {
 };
 
 PlayerCell.prototype.calcMergeTime = function(base) {
-    this.recombineTicks = base + ((0.02 * this.mass) >> 0); // Int (30 sec + (.02 * mass))
+    if (base == -1) {
+        this.recombineTicks = 0;
+    } else {
+        this.recombineTicks = base + ((0.02 * this.mass) >> 0); // Int (30 sec + (.02 * mass))
+    }
 };
 
 // Movement
