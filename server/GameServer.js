@@ -79,6 +79,7 @@ function GameServer(realmID, confile) {
         ejectMassLoss: 16, // Mass lost when ejecting cells
         ejectSpeed: 160, // Base speed of ejected cells
         ejectSpawnPlayer: 50, // Chance for a player to spawn from ejected mass
+        ejectMassCooldown: 200, // Eject mass cooldown
         playerStartMass: 10, // Starting mass of the player cell.
         playerMaxMass: 22500, // Maximum mass a player can have
         playerMinMassEject: 32, // Mass required to eject a cell
@@ -708,41 +709,38 @@ GameServer.prototype.splitCells = function(client) {
 };
 
 GameServer.prototype.ejectMass = function(client) {
-    for (var i = 0; i < client.cells.length; i++) {
-        var cell = client.cells[i];
+    if (typeof client.lastEject == 'undefined' || this.time - client.lastEject >= this.config.ejectMassCooldown) {
+        for (var i = 0, llen = client.cells.length; i < llen; i++) {
+            var cell = client.cells[i];
+            if ( (!cell) || (cell.mass < this.config.playerMinMassEject)) {
+                continue;
+            }
+            var deltaY = client.mouse.y - cell.position.y;
+            var deltaX = client.mouse.x - cell.position.x;
+            var angle = Math.atan2(deltaX, deltaY);
 
-        if (!cell) {
-            continue;
+            // Get starting position
+            var size = cell.getSize() + 5;
+            var startPos = {
+                x: cell.position.x + ( (size + this.config.ejectMass) * Math.sin(angle) ),
+                y: cell.position.y + ( (size + this.config.ejectMass) * Math.cos(angle) )
+            };
+
+            // Remove mass from parent cell
+            cell.mass -= this.config.ejectMassLoss;
+            // Randomize angle
+            angle += (Math.random() * 0.4) - 0.2;
+
+            // Create cell
+            var ejected = new Entity.EjectedMass(this.getNextNodeId(), null, startPos, this.config.ejectMass);
+            ejected.setAngle(angle);
+            ejected.setMoveEngineData(this.config.ejectSpeed, 20);
+            ejected.setColor(cell.getColor());
+
+            this.addNode(ejected);
+            this.setAsMovingNode(ejected);
+            client.lastEject = this.time;
         }
-
-        if (cell.mass < this.config.playerMinMassEject) {
-            continue;
-        }
-
-        var deltaY = client.mouse.y - cell.position.y;
-        var deltaX = client.mouse.x - cell.position.x;
-        var angle = Math.atan2(deltaX, deltaY);
-
-        // Get starting position
-        var size = cell.getSize() + 5;
-        var startPos = {
-            x: cell.position.x + ((size + this.config.ejectMass) * Math.sin(angle)),
-            y: cell.position.y + ((size + this.config.ejectMass) * Math.cos(angle))
-        };
-
-        // Remove mass from parent cell
-        cell.mass -= this.config.ejectMassLoss;
-        // Randomize angle
-        angle += (Math.random() * .4) - .2;
-
-        // Create cell
-        var ejected = new Entity.EjectedMass(this.getNextNodeId(), null, startPos, this.config.ejectMass);
-        ejected.setAngle(angle);
-        ejected.setMoveEngineData(this.config.ejectSpeed, 20);
-        ejected.setColor(cell.getColor());
-
-        this.addNode(ejected);
-        this.setAsMovingNode(ejected);
     }
 };
 
