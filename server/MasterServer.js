@@ -20,10 +20,10 @@ function MasterServer(selected) {
     this.config = {
         serverIP: "127.0.0.1",
         serverPort: 88,
-        gameserverPort: 445,
+        gameserverPort: 1500,
         updateTime: 60,
         regions: {
-            "US-Fremont": 1
+            "Cigar": 1
         },
     };
 
