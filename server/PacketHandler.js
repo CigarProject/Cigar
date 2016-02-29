@@ -81,7 +81,7 @@ PacketHandler.prototype.handleMessage = function(message) {
             // W Press - Eject mass
             this.pressW = true;
             break;
-        case 250:
+        case 255:
             // Connection Start 
             this.protocol = view.getUint32(1, true);
             // Send SetBorder packet first
@@ -115,7 +115,7 @@ PacketHandler.prototype.handleMessage = function(message) {
                 this.gameServer.clients[i].sendPacket(packet);
             }
             break;
-        case 255:
+        case 256:
             // Connection Start
             if (view.byteLength == 5) {
                 var c = this.gameServer.config,
