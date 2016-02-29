@@ -5,23 +5,24 @@ function UpdateLeaderboard(leaderboard, packetLB) {
 
 module.exports = UpdateLeaderboard;
 
-UpdateLeaderboard.prototype.build = function() {
+UpdateLeaderboard.prototype.build = function () {
     // First, calculate the size
     var lb = this.leaderboard;
     var bufferSize = 5;
     var validElements = 0;
+    var lbElemtns = lb.length;
 
     switch (this.packetLB) {
         case 48: // Custom Text List
             // Get size of packet
-            for (var i = 0; i < lb.length; i++) {
+            for (var i = 0; i < lbElemtns; i++) {
                 if (typeof lb[i] == "undefined") {
                     continue;
                 }
 
                 var item = lb[i];
                 bufferSize += 4; // Empty ID
-                bufferSize += item.length * 2 ; // String length
+                bufferSize += item.length * 2; // String length
                 bufferSize += 2; // Name terminator
 
                 validElements++;
@@ -31,17 +32,12 @@ UpdateLeaderboard.prototype.build = function() {
             var view = new DataView(buf);
 
             // Set packet data
-            // TODO: check client version
-            //if(client = 1332175218){
-            view.setUint8(0, this.packetLB, true); // Packet ID
-            //}else{
-            //  view.setUin8(0, 49, true); // Packet ID
-            //}
+            view.setUint8(0, 49, true); // Packet ID
             view.setUint32(1, validElements, true); // Number of elements
             var offset = 5;
 
             // Loop through strings
-            for (var i = 0; i < lb.length; i++) {
+            for (var i = 0; i < lbElemtns; i++) {
                 if (typeof lb[i] == "undefined") {
                     continue;
                 }
@@ -63,7 +59,7 @@ UpdateLeaderboard.prototype.build = function() {
             break;
         case 49: // FFA-type Packet (List)
             // Get size of packet
-            for (var i = 0; i < lb.length; i++) {
+            for (var i = 0; i < lbElemtns; i++) {
                 if (typeof lb[i] == "undefined") {
                     continue;
                 }
@@ -84,7 +80,7 @@ UpdateLeaderboard.prototype.build = function() {
             view.setUint32(1, validElements, true); // Number of elements
 
             var offset = 5;
-            for (var i = 0; i < lb.length; i++) {
+            for (var i = 0; i < lbElemtns; i++) {
                 if (typeof lb[i] == "undefined") {
                     continue;
                 }
@@ -113,7 +109,7 @@ UpdateLeaderboard.prototype.build = function() {
             }
             return buf;
         case 50: // Teams-type Packet (Pie Chart)
-            validElements = lb.length;
+            validElements = lbElemtns;
             bufferSize += (validElements * 4);
 
             var buf = new ArrayBuffer(bufferSize);
@@ -123,7 +119,7 @@ UpdateLeaderboard.prototype.build = function() {
             view.setUint32(1, validElements, true); // Number of elements
 
             var offset = 5;
-            for (var i = 0; i < validElements;i++) {
+            for (var i = 0; i < validElements; i++) {
                 view.setFloat32(offset, lb[i], true); // Number of elements
                 offset += 4;
             }
@@ -133,4 +129,3 @@ UpdateLeaderboard.prototype.build = function() {
             break;
     }
 };
-
