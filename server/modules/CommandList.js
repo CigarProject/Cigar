@@ -170,9 +170,6 @@ Commands.list = {
         gameServer.currentFood++; 
         println(gameServer," Spawned 1 food cell at ("+pos.x+" , "+pos.y+")");
     },
-    get: function() {
-
-    },
     gamemode: function(gameServer,split) {
         try {
             var n = parseInt(split[1]);

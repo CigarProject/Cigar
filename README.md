@@ -42,13 +42,13 @@ Once the gameserver is running, visit the client of your choice and join the ser
 Use "gameserver1.ini" to modify Cigar's configurations field. Player bots are currently basic and for testing purposes. To use them, change "serverBots" to a value higher than zero in the configuration file. To add/remove bot names, edit the file named "botnames.txt" which is in the same folder as "gameserver.ini". Names should be separated by using the enter key.
 
 ## Custom Game modes
-Cigar has support for custom game modes. To switch between game modes, change the value of "serverGamemode" in the configurations file to the selected game mode id and restart the server. Please check [GAMEMODES.md](https://github.com/forairan/Ogar/blob/master/GAMEMODES.md) for the list of gamemodes.
+Cigar has support for custom game modes. To switch between game modes, change the value of "serverGamemode" in the configurations file to the selected game mode id and restart the server. Please check [GAMEMODES.md](https://github.com/CigarProject/Cigar/blob/master/doc/GAMEMODES.md) for the list of gamemodes.
 
 ## Console Commands
-Command names are not case sensitive, but the gameserver.ini variables are. This is a list of every thing you can type into the console upon opening Cigar. All commands can be found at [COMMANDS.md](https://github.com/forairan/Ogar/blob/master/COMMANDS.md)
+Command names are not case sensitive, but the gameserver.ini variables are. This is a list of every thing you can type into the console upon opening Cigar. All commands can be found at [COMMANDS.md](https://github.com/CigarProject/Cigar/blob/master/doc/COMMANDS.md)
 
 ## Contributing
-Please see [CONTRIBUTING.md](https://github.com/forairan/Ogar/blob/master/CONTRIBUTING.md) for contribution guidelines.
+Please see [CONTRIBUTING.md](https://github.com/CigarProject/Cigar/blob/master/doc/CONTRIBUTING.md) for contribution guidelines.
 
 ## License
-Please see [LICENSE.md](https://github.com/forairan/Ogar/blob/master/LICENSE.md).
+Please see [LICENSE.md](https://github.com/CigarProject/Cigar/blob/master/doc/LICENSE.md).
