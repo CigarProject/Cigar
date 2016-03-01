@@ -14,6 +14,7 @@ while true
 do
 	clear
 	$node server/index.js
+	echo -------------------------------------------------------
 	echo [BATCH] Server Shutdown, waiting 15 seconds before a restart.
 	sleep 15
 done

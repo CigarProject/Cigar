@@ -15,12 +15,12 @@ var selected = function consoleObj() {
     this.server;
 };
 // Start msg
-console.log("  ____ _                  ____            _           _   ");
+console.log("\u001B[32m  ____ _                  ____            _           _   ");
 console.log(" / ___(_) __ _  __ _ _ __|  _ \\ _ __ ___ (_) ___  ___| |_ ");
 console.log("| |   | |/ _` |/ _` | '__| |_) | '__/ _ \\| |/ _ \\/ __| __|");
 console.log("| |___| | (_| | (_| | |  |  __/| | | (_) | |  __/ (__| |_ ");
 console.log(" \\____|_|\\__, |\\__,_|_|  |_|   |_|  \\___// |\\___|\\___|\\__|");
-console.log("         |___/ - Better than Ogar!     |__/               ");
+console.log("         |___/ \u001B[33m- Better than Ogar!     \u001B[32m|__/               \u001B[0m");
 console.log("-------------------------------------------------------");
 
 // Handle arguments

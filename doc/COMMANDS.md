@@ -16,6 +16,8 @@
    * Clears the console output
  - Color [Player ID] [Red] [Green] [Blue]
    * Replaces the color of the specified player with this color.
+ - Exit
+   * Stops the process of the server and restarts.
  - Food [X position] [Y position] [Mass]
    * Spawns a food cell at those coordinates. If a mass value is not specified, then the server will default to "foodStartMass" in the config.
  - Gamemode [Id]

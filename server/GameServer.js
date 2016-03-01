@@ -127,6 +127,7 @@ GameServer.prototype.start = function() {
 
         // Done
         console.log("[Game:" + this.realmID + "] Game Server started at port %d", this.config.serverPort);
+        console.log("[Game:" + this.realmID + "] Stats Server started at port %d", this.config.serverStatsPort);
         console.log("[Game:" + this.realmID + "] Current game mode is " + this.gameMode.name);
 
         // Player bots (Experimental)
@@ -321,6 +322,7 @@ GameServer.prototype.getRandomColor = function() {
 };
 
 GameServer.prototype.exitServer = function() {
+    console.log("[Game:" + this.realmID + "] Server shutting down.")
     this.socketServer.close();
     process.exit(1);
     window.close();
@@ -621,47 +623,63 @@ GameServer.prototype.setAsMovingNode = function(node) {
     this.movingNodes.push(node);
 };
 
+GameServer.prototype.formatTime = function () {
+    var hour = this.time.getHours();
+    hour = (hour < 10 ? "0" : "") + hour;
+
+    var min = this.time.getMinutes();
+    min = (min < 10 ? "0" : "") + min;
+
+    return hour + ":" + min;
+};
+
 GameServer.prototype.splitCells = function(client) {
     var len = client.cells.length;
-    for (var i = 0; i < len; i++) {
-        if (client.cells.length >= this.config.playerMaxCells) {
-            // Player cell limit
-            continue;
+    if (len < this.config.playerMaxCells) {
+        for (var i = 0; i < len; i++) {
+            if (client.cells.length >= this.config.playerMaxCells) {
+                break;
+            }
+
+            var cell = client.cells[i];
+            if (!cell) {
+                continue;
+            }
+
+            if (cell.mass < this.config.playerMinMassSplit) {
+                continue;
+            }
+
+            // Get angle
+            var deltaY = client.mouse.y - cell.position.y;
+            var deltaX = client.mouse.x - cell.position.x;
+            var angle = Math.atan2(deltaX, deltaY);
+
+            // Get starting position
+            var startPos = {
+                x: cell.position.x,
+                y: cell.position.y
+            };
+            // Calculate mass and speed of splitting cell
+            var newMass = cell.mass / 2;
+            cell.mass = newMass;
+
+            // Create cell
+            var split = new Entity.PlayerCell(this.getNextNodeId(), client, startPos, newMass, this);
+            split.setAngle(angle);
+            var splitSpeed = 130 * Math.max((Math.log(newMass)/2.3) - 2.2, 1); //for smaller cells use splitspeed 150, for bigger cells add some speed
+            split.setMoveEngineData(splitSpeed, 32, 0.85); //vanilla agar.io = 130, 32, 0.85
+            if (this.config.playerSmoothSplit == 1) {
+                cell.collisionRestoreTicks = 3;
+                split.collisionRestoreTicks = 6;
+            }
+            split.calcMergeTime(this.config.playerRecombineTime);
+            split.restoreCollisionTicks = 10; //vanilla agar.io = 10
+
+            // Add to moving cells list
+            this.setAsMovingNode(split);
+            this.addNode(split);
         }
-
-        var cell = client.cells[i];
-        if (!cell) {
-            continue;
-        }
-
-        if (cell.mass < this.config.playerMinMassSplit) {
-            continue;
-        }
-
-        // Get angle
-        var deltaY = client.mouse.y - cell.position.y;
-        var deltaX = client.mouse.x - cell.position.x;
-        var angle = Math.atan2(deltaX, deltaY);
-
-        // Get starting position
-        var size = cell.getSize() / 2;
-        var startPos = {
-            x: cell.position.x + (size * Math.sin(angle)),
-            y: cell.position.y + (size * Math.cos(angle))
-        };
-        // Calculate mass and speed of splitting cell
-        var splitSpeed = cell.getSpeed() * 6;
-        var newMass = cell.mass / 2;
-        cell.mass = newMass;
-        // Create cell
-        var split = new Entity.PlayerCell(this.getNextNodeId(), client, startPos, newMass);
-        split.setAngle(angle);
-        split.setMoveEngineData(splitSpeed, 32, 0.85);
-        split.calcMergeTime(this.config.playerRecombineTime);
-
-        // Add to moving cells list
-        this.setAsMovingNode(split);
-        this.addNode(split);
     }
 };
 
@@ -933,7 +951,6 @@ GameServer.prototype.startStatsServer = function(port) {
 
     this.httpServer.listen(port, function() {
         // Stats server
-        console.log("[Game:" + this.realmID + "] Loaded stats server on port " + port);
         setInterval(this.getStats.bind(this), this.config.serverStatsUpdate * 1000);
     }.bind(this));
 };

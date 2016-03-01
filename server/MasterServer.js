@@ -69,8 +69,7 @@ MasterServer.prototype.start = function() {
     function onListening() {
         var addr = MS.httpServer.address();
         var bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
-        console.log('-------------------------------------------------------');
-        console.log('[Master] Listening on ' + bind);
+        console.log('[Master] Master Server started at port ' + bind);
     }
 
     this.loadConfig();
