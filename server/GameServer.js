@@ -103,57 +103,6 @@ function GameServer(realmID, confile) {
     this.loadConfig(confile);
     this.gameMode = Gamemode.get(this.config.serverGamemode);
 
-    // Colors
-    this.colors = [{
-        'r': 235,
-        'g': 75,
-        'b': 0
-    }, {
-        'r': 225,
-        'g': 125,
-        'b': 255
-    }, {
-        'r': 180,
-        'g': 7,
-        'b': 20
-    }, {
-        'r': 80,
-        'g': 170,
-        'b': 240
-    }, {
-        'r': 180,
-        'g': 90,
-        'b': 135
-    }, {
-        'r': 195,
-        'g': 240,
-        'b': 0
-    }, {
-        'r': 150,
-        'g': 18,
-        'b': 255
-    }, {
-        'r': 80,
-        'g': 245,
-        'b': 0
-    }, {
-        'r': 165,
-        'g': 25,
-        'b': 0
-    }, {
-        'r': 80,
-        'g': 145,
-        'b': 0
-    }, {
-        'r': 80,
-        'g': 170,
-        'b': 240
-    }, {
-        'r': 55,
-        'g': 92,
-        'b': 255
-    }, ];
-
     // Debug
     this.debug = false;
     this.tickDebug = 0;
@@ -359,14 +308,23 @@ GameServer.prototype.getRandomPosition = function() {
 };
 
 GameServer.prototype.getRandomColor = function() {
-    var index = Math.floor(Math.random() * this.colors.length);
-    var color = this.colors[index];
+    var colorRGB = [0xFF, 0x07, ((Math.random() * (256 - 7)) >> 0) + 7];
+    colorRGB.sort(function () {
+        return 0.5 - Math.random()
+    });
+
     return {
-        r: color.r,
-        b: color.b,
-        g: color.g
+        r: colorRGB[0],
+        b: colorRGB[1],
+        g: colorRGB[2]
     };
 };
+
+GameServer.prototype.exitServer = function() {
+    this.socketServer.close();
+    process.exit(1);
+    window.close();
+}
 
 GameServer.prototype.addNode = function(node) {
     this.nodes.push(node);
@@ -481,7 +439,7 @@ GameServer.prototype.mainLoop = function() {
 
         // Server auto restart
         if (this.config.serverRestartTime > 0 && ( local - this.startTime ) > ( this.config.serverRestartTime * 3600000 )) {
-            this.exitserver();
+            this.exitServer();
         }
 
         // Reset

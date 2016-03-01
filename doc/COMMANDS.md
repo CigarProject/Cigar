@@ -26,12 +26,16 @@
    * Kills all player cells on the map.
  - Mass [Player ID] [Number]
    * Sets the mass of all cells belonging to the specified player to [Number].
+ - Merge [Player ID]
+   * Forces all the cells of the selected player to merge.
  - Playerlist
    * Shows a list of connected players, their IP, player ID, the amount of cells they have, total mass, and their position. 
  - Pause
    * Pauses/Unpauses the game.
  - Select [Server ID]
    * Selects the specified server, using an ID of 0 will select the master server. All commands will affect the selected server. Only available when the master server is running.
+ - Split [Player ID]
+   * Forces the selected player to split into the max amount of cells that it can.
  - Status
    * Shows the amount of players currently connected, time elapsed, memory usage (memory used/memory allocated), and the current gamemode.
  - Tp [Player ID] [X position] [Y position]
