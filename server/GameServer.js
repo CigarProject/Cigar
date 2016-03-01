@@ -635,51 +635,45 @@ GameServer.prototype.formatTime = function () {
 
 GameServer.prototype.splitCells = function(client) {
     var len = client.cells.length;
-    if (len < this.config.playerMaxCells) {
-        for (var i = 0; i < len; i++) {
-            if (client.cells.length >= this.config.playerMaxCells) {
-                break;
-            }
-
-            var cell = client.cells[i];
-            if (!cell) {
-                continue;
-            }
-
-            if (cell.mass < this.config.playerMinMassSplit) {
-                continue;
-            }
-
-            // Get angle
-            var deltaY = client.mouse.y - cell.position.y;
-            var deltaX = client.mouse.x - cell.position.x;
-            var angle = Math.atan2(deltaX, deltaY);
-
-            // Get starting position
-            var startPos = {
-                x: cell.position.x,
-                y: cell.position.y
-            };
-            // Calculate mass and speed of splitting cell
-            var newMass = cell.mass / 2;
-            cell.mass = newMass;
-
-            // Create cell
-            var split = new Entity.PlayerCell(this.getNextNodeId(), client, startPos, newMass, this);
-            split.setAngle(angle);
-            var splitSpeed = 130 * Math.max((Math.log(newMass)/2.3) - 2.2, 1); //for smaller cells use splitspeed 150, for bigger cells add some speed
-            split.setMoveEngineData(splitSpeed, 32, 0.85); //vanilla agar.io = 130, 32, 0.85
-            if (this.config.playerSmoothSplit == 1) {
-                cell.collisionRestoreTicks = 3;
-                split.collisionRestoreTicks = 6;
-            }
-            split.calcMergeTime(this.config.playerRecombineTime);
-            split.restoreCollisionTicks = 10; //vanilla agar.io = 10
-
-            // Add to moving cells list
-            this.setAsMovingNode(split);
-            this.addNode(split);
+    for (var i = 0; i < len; i++) {
+        if (client.cells.length >= this.config.playerMaxCells) {
+            // Player cell limit
+            continue;
         }
+
+        var cell = client.cells[i];
+        if (!cell) {
+            continue;
+        }
+
+        if (cell.mass < this.config.playerMinMassSplit) {
+            continue;
+        }
+
+        // Get angle
+        var deltaY = client.mouse.y - cell.position.y;
+        var deltaX = client.mouse.x - cell.position.x;
+        var angle = Math.atan2(deltaX, deltaY);
+
+        // Get starting position
+        var size = cell.getSize() / 2;
+        var startPos = {
+            x: cell.position.x + (size * Math.sin(angle)),
+            y: cell.position.y + (size * Math.cos(angle))
+        };
+        // Calculate mass and speed of splitting cell
+        var splitSpeed = cell.getSpeed() * 6;
+        var newMass = cell.mass / 2;
+        cell.mass = newMass;
+        // Create cell
+        var split = new Entity.PlayerCell(this.getNextNodeId(), client, startPos, newMass);
+        split.setAngle(angle);
+        split.setMoveEngineData(splitSpeed, 32, 0.85);
+        split.calcMergeTime(this.config.playerRecombineTime);
+
+        // Add to moving cells list
+        this.setAsMovingNode(split);
+        this.addNode(split);
     }
 };
 
