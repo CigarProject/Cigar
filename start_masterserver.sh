@@ -1,4 +1,4 @@
-#!/bin/bash
+#/bin/bash
 node="node"
 which apt-get > /dev/null
 if [ "$?" -eq "0" ]; then
