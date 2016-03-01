@@ -1,4 +1,6 @@
-Cigar is back and better than ever! M-Byte has made me (MastaCoder) an admin of the repo, I'll be keeping this server up to date and trying to do my best and keep it up!
+![Language](https://img.shields.io/badge/language-JavaScript-yellow.svg) ![Demo](https://img.shields.io/badge/demo-MastaCoder-blue.svg)
+
+To see the latest, fully functional version of the server active, go look at the [Live Demo](http://172.110.29.74:90/).
 
 # Cigar
 A fully functional open source Agar.io server implementation, written in Node.js. Cigar is based on the same code as Ogar, but introduces features that can only be used with unofficial clients.
