@@ -18,7 +18,9 @@ function GameServer(realmID, confile) {
     this.realmID = realmID;
     this.masterServer;
 
-    // Startup 
+    // Startup
+    var adminArray = [];
+    var nadminArray = [];
     this.run = true;
     this.lastNodeId = 1;
     this.lastPlayerId = 1;
@@ -60,6 +62,10 @@ function GameServer(realmID, confile) {
         masterIP: "127.0.0.1", // Advanced.
         masterCommands: false, // Advanced.
         masterUpdate: 45, // Advanced.
+        adminConfig: 0, // Turn on or off the use of admin configurations. (1 is on - 0 is off)
+        adminNames: "", // The name a user would have to use to register as an admin.
+        adminNewNames: "", // The name you will be changed to when using adminNames.
+        adminStartMass: 500, // Amount of mass the admins start with.
         borderLeft: 0, // Left border of map (Vanilla value: 0)
         borderRight: 6000, // Right border of map (Vanilla value: 11180.3398875)
         borderTop: 0, // Top border of map (Vanilla value: 0)
@@ -483,15 +489,42 @@ GameServer.prototype.spawnFood = function() {
 };
 
 GameServer.prototype.spawnPlayer = function(player, pos, mass) {
+    var isAdmin = false;
+    // Check for config
+    if (this.config.adminConfig == 1) {
+        adminArray = this.config.adminNames.split(";");
+        nadminArray = this.config.adminNewNames.split(";");
+        var ii = 0;
+        function checkAdmin() {
+            if (ii !== adminArray.length) {
+                if (player.name == adminArray[ii]) {
+                    isAdmin = true;
+                    console.log("[Master] " + nadminArray[ii] + " has successfully logged in using " + adminArray[ii]);
+                } else {
+                    ii = ii + 1;
+                    checkAdmin();
+                }
+            }
+        }
+        checkAdmin();
+    }
+
     if (pos == null) { // Get random pos
         pos = this.getRandomPosition();
     }
+
     if (mass == null) { // Get starting mass
         mass = this.config.playerStartMass;
     }
 
     // Spawn player and add to world
-    var cell = new Entity.PlayerCell(this.getNextNodeId(), player, pos, mass);
+    if (isAdmin == true) {
+        player.name = nadminArray[ii];
+        var cell = new Entity.PlayerCell(this.getNextNodeId(), player, pos, this.config.adminStartMass);
+    } else {
+        var cell = new Entity.PlayerCell(this.getNextNodeId(), player, pos, mass);
+    }
+
     this.addNode(cell);
 
     // Set initial mouse coords
