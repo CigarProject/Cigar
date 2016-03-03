@@ -163,7 +163,7 @@ PacketHandler.prototype.handleMessage = function(message) {
                 var passkey = "/rcon " + this.gameServer.config.serverAdminPass + " ";
                 if (message.substr(0, passkey.length) == passkey) {
                     var cmd = message.substr(passkey.length, message.length);
-                    console.log("\u001B[36m" + wname + ": \u001B[0missued a remote console command: " + cmd);
+                    console.log("\u001B[31m[Master]\u001B[0m " + wname + " has issued a remote command " + cmd);
                     var split = cmd.split(" "),
                         first = split[0].toLowerCase(),
                         execute = this.gameServer.commands[first];
@@ -174,7 +174,7 @@ PacketHandler.prototype.handleMessage = function(message) {
                     }
                     break;
                 } else if (message.substr(0, 6) == "/rcon ") {
-                    console.log("\u001B[36m" + wname + ": \u001B[0missued a remote console command but used a wrong pass key!");
+                    console.log("\u001B[31m[Master]\u001B[0m " + wname + " has issued a remote command but used the wrong password!");
                     break;
                 }
             }

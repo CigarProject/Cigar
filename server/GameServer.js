@@ -58,6 +58,7 @@ function GameServer(realmID, confile) {
         serverLeaderboardLength: 10, // Maximum number of people on leaderboard
         serverMaxConnectionIP: 3, // Max amount of connections per IP
         serverRestartTime: 24, // How many hours before server restart
+        serverLogLevel: 0, // More console.logs in the console.
         useWithMaster: false, // Advanced.
         masterIP: "127.0.0.1", // Advanced.
         masterCommands: false, // Advanced.
@@ -178,7 +179,9 @@ GameServer.prototype.start = function() {
         }
         if (this.clients.length > this.config.serverMaxConnections) { // Server full
             ws.close();
-            console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Client tried to connect, but server player limit has been reached!");
+            if (this.config.serverLogLevel == 1) {
+                console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Client tried to connect, but server player limit has been reached!");
+            }
             return;
         } else if (this.banned.indexOf(ws._socket.remoteAddress) != -1) { // Banned
             ws.close();
@@ -533,6 +536,9 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
         x: pos.x,
         y: pos.y
     };
+    if (this.config.serverLogLevel == 1) {
+        console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m " + player.name + " has spawned.");
+    }
 };
 
 GameServer.prototype.virusCheck = function() {
