@@ -85,7 +85,8 @@ function GameServer(realmID, confile) {
         ejectMassLoss: 16, // Mass lost when ejecting cells
         ejectSpeed: 160, // Base speed of ejected cells
         ejectSpawnPlayer: 50, // Chance for a player to spawn from ejected mass
-        ejectMassCooldown: 200, // Eject mass cooldown
+        ejectMassCooldown: 75, // Eject mass cooldown
+        ejectRandomColor: 0, // Random color on ejected mass.
         playerStartMass: 10, // Starting mass of the player cell.
         playerMaxMass: 22500, // Maximum mass a player can have
         playerMinMassEject: 32, // Mass required to eject a cell
@@ -737,7 +738,11 @@ GameServer.prototype.ejectMass = function(client) {
             var ejected = new Entity.EjectedMass(this.getNextNodeId(), null, startPos, this.config.ejectMass);
             ejected.setAngle(angle);
             ejected.setMoveEngineData(this.config.ejectSpeed, 20);
-            ejected.setColor(cell.getColor());
+            if (this.config.ejectRandomColor == 1) {
+                ejected.setColor(this.getRandomColor());
+            } else {
+                ejected.setColor(cell.getColor());
+            }
 
             this.addNode(ejected);
             this.setAsMovingNode(ejected);
