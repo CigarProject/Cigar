@@ -34,6 +34,8 @@
    * Shows a list of connected players, their IP, player ID, the amount of cells they have, total mass, and their position. 
  - Pause
    * Pauses/Unpauses the game.
+ - Reload [Gameserver ID]
+   * Reloads the settings in the gameserver.ini.
  - Select [Server ID]
    * Selects the specified server, using an ID of 0 will select the master server. All commands will affect the selected server. Only available when the master server is running.
  - Split [Player ID]
