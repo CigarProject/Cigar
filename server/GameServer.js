@@ -132,16 +132,16 @@ GameServer.prototype.start = function() {
         setInterval(this.mainLoop.bind(this), 1);
 
         // Done
-        console.log("[Game:" + this.realmID + "] Game Server started at port %d", this.config.serverPort);
-        console.log("[Game:" + this.realmID + "] Stats Server started at port %d", this.config.serverStatsPort);
-        console.log("[Game:" + this.realmID + "] Current game mode is " + this.gameMode.name);
+        console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Game Server started at port %d", this.config.serverPort);
+        console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Stats Server started at port %d", this.config.serverStatsPort);
+        console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Current game mode is " + this.gameMode.name);
 
         // Player bots (Experimental)
         if (this.config.serverBots > 0) {
             for (var i = 0; i < this.config.serverBots; i++) {
                 this.bots.addBot();
             }
-            console.log("[Game:" + this.realmID + "] Loaded " + this.config.serverBots + " player bots");
+            console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Loaded " + this.config.serverBots + " player bots");
         }
     }.bind(this));
 
@@ -177,7 +177,7 @@ GameServer.prototype.start = function() {
         }
         if (this.clients.length > this.config.serverMaxConnections) { // Server full
             ws.close();
-            console.log("[Game:" + this.realmID + "] Client tried to connect, but server player limit has been reached!");
+            console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Client tried to connect, but server player limit has been reached!");
             return;
         } else if (this.banned.indexOf(ws._socket.remoteAddress) != -1) { // Banned
             ws.close();
@@ -284,7 +284,7 @@ GameServer.prototype.start = function() {
 
 GameServer.prototype.getName = function() {
     // Gets the name of this server. For use in the console
-    return "[Game:" + this.realmID + "]";
+    return "\u001B[33m[Game:" + this.realmID + "]\u001B[0m";
 }
 
 GameServer.prototype.getMode = function() {
@@ -328,7 +328,7 @@ GameServer.prototype.getRandomColor = function() {
 };
 
 GameServer.prototype.exitServer = function() {
-    console.log("[Game:" + this.realmID + "] Server shutting down.")
+    console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Server shutting down.")
     this.socketServer.close();
     process.exit(1);
     window.close();
@@ -499,7 +499,7 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
             if (ii !== adminArray.length) {
                 if (player.name == adminArray[ii]) {
                     isAdmin = true;
-                    console.log("[Master] " + nadminArray[ii] + " has successfully logged in using " + adminArray[ii]);
+                    console.log("\u001B[31m[Master]\u001B[0m " + nadminArray[ii] + " has successfully logged in using " + adminArray[ii]);
                 } else {
                     ii = ii + 1;
                     checkAdmin();
@@ -952,7 +952,7 @@ GameServer.prototype.loadConfig = function(confile) {
         }
     } catch (err) {
         // No config
-        console.log("[Game:" + this.realmID + "] Config not found... Generating new config");
+        console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Config not found... Generating new config");
 
         // Create a new config
         fs.writeFileSync(confile, ini.stringify(this.config));

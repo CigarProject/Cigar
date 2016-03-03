@@ -54,11 +54,11 @@ MasterServer.prototype.start = function() {
         // handle specific listen errors with friendly messages
         switch (error.code) {
             case 'EACCES':
-                console.log('[Master] ' + MS.config.serverPort + ' requires elevated privileges');
+                console.log('\u001B[31m[Master]\u001B[0m ' + MS.config.serverPort + ' requires elevated privileges');
                 process.exit(1);
                 break;
             case 'EADDRINUSE':
-                console.log('[Master] ' + MS.config.serverPort + ' is already in use');
+                console.log('\u001B[31m[Master]\u001B[0m ' + MS.config.serverPort + ' is already in use');
                 process.exit(1);
                 break;
             default:
@@ -69,7 +69,7 @@ MasterServer.prototype.start = function() {
     function onListening() {
         var addr = MS.httpServer.address();
         var bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
-        console.log('[Master] Master Server started at port ' + bind);
+        console.log('\u001B[31m[Master]\u001B[0m Master Server started at port ' + bind);
     }
 
     this.loadConfig();
@@ -88,7 +88,7 @@ MasterServer.prototype.start = function() {
 
 MasterServer.prototype.getName = function() {
     // Gets the name of this server. For use in the console
-    return "[Master]";
+    return "\u001B[31m[Master]\u001B[0m";
 };
 
 MasterServer.prototype.getNextID = function() {
@@ -166,7 +166,7 @@ MasterServer.prototype.addServer = function(ip, port, reg) {
         var id;
 
         ws.on('error', function err(er) {
-            console.log("[Master] Error connecting to a game server!");
+            console.log("\u001B[31m[Master]\u001B[0m Error connecting to a game server!");
         });
 
         ws.on('open', function open() {
@@ -203,7 +203,7 @@ MasterServer.prototype.addServer = function(ip, port, reg) {
             // Remove holder here
         });
     } catch (er) {
-        console.log("[Master] Error connecting to a game server!");
+        console.log("\u001B[31m[Master]\u001B[0m Error connecting to a game server!");
         return;
     }
 

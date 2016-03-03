@@ -192,6 +192,9 @@ Commands.list = {
             println(gameServer, " Invalid game mode selected");
         }
     },
+    help: function(gameServer) {
+        console.log("[Master] To view all the commands, check the documentations for commands on the Cigar GitHub page.");
+    },
     kill: function(gameServer, split) {
         var id = parseInt(split[1]);
         if (isNaN(id)) {
