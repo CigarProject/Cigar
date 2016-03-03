@@ -352,6 +352,17 @@ Commands.list = {
         var s = gameServer.run ? "Unpaused" : "Paused";
         println(gameServer, " " + s + " the game.");
     },
+    reload: function (gameServer, split) {
+        // Validation checks
+        var id = parseInt(split[1]);
+        if (isNaN(id)) {
+            println(gameServer, " Please specify a valid gameserver.ini ID. (Such as 1 for gameserver1.ini)");
+            return;
+        }
+
+        gameServer.loadConfig("./gameserver" + id + ".ini");
+        println(gameServer, " Configuration file reloaded successfully for gameserver" + id + ".ini.");
+    },
     select: function(gameServer, split, masterServer) {
         var id = parseInt(split[1]);
         if (isNaN(id)) {
