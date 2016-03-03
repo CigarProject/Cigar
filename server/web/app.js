@@ -74,7 +74,7 @@ app.locals.modes = [{val: '', name: 'FFA'},
 
 // uncomment after placing your favicon in /public
 //app.use(favicon(__dirname + '/public/favicon.ico'));
-app.use(logger('dev'));
+//app.use(logger('dev'));
 app.use(busboy({limits: {fileSize: 512 * 1024}}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
