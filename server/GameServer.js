@@ -21,6 +21,7 @@ function GameServer(realmID, confile) {
     // Startup
     var adminArray = [];
     var nadminArray = [];
+    var blockedNames = [];
     this.run = true;
     this.lastNodeId = 1;
     this.lastPlayerId = 1;
@@ -67,6 +68,7 @@ function GameServer(realmID, confile) {
         adminNames: "", // The name a user would have to use to register as an admin.
         adminNewNames: "", // The name you will be changed to when using adminNames.
         adminStartMass: 500, // Amount of mass the admins start with.
+        adminBlockNames: 1, // Block users using admin names.
         borderLeft: 0, // Left border of map (Vanilla value: 0)
         borderRight: 6000, // Right border of map (Vanilla value: 11180.3398875)
         borderTop: 0, // Top border of map (Vanilla value: 0)
@@ -101,6 +103,7 @@ function GameServer(realmID, confile) {
         playerSpeed: 30, // Speed of the player cells.
         playerFDMultiplier: 2, // Fast decay multiplier
         playerFDMass: 5000, // Mass to start fast decay at.
+        playerNameBlock: "", // Names to block from playing.
         tourneyMaxPlayers: 12, // Maximum amount of participants for tournament style game modes
         tourneyPrepTime: 10, // Amount of ticks to wait after all players are ready (1 tick = 1000 ms)
         tourneyEndTime: 30, // Amount of ticks to wait after a player wins (1 tick = 1000 ms)
@@ -172,7 +175,7 @@ GameServer.prototype.start = function() {
                     cons++;
                 }
             }
-            if (cons > this.config.serverMaxConnectionIP ) {
+            if (cons > this.config.serverMaxConnectionIP) {
                 ws.close();
                 return;
             }
@@ -320,7 +323,7 @@ GameServer.prototype.getRandomPosition = function() {
 
 GameServer.prototype.getRandomColor = function() {
     var colorRGB = [0xFF, 0x07, ((Math.random() * (256 - 7)) >> 0) + 7];
-    colorRGB.sort(function () {
+    colorRGB.sort(function() {
         return 0.5 - Math.random()
     });
 
@@ -450,7 +453,7 @@ GameServer.prototype.mainLoop = function() {
         }
 
         // Server auto restart
-        if (this.config.serverRestartTime > 0 && ( local - this.startTime ) > ( this.config.serverRestartTime * 3600000 )) {
+        if (this.config.serverRestartTime > 0 && (local - this.startTime) > (this.config.serverRestartTime * 3600000)) {
             this.exitServer();
         }
 
@@ -496,21 +499,64 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
     var isAdmin = false;
     // Check for config
     if (this.config.adminConfig == 1) {
+        // Make the required variables
         adminArray = this.config.adminNames.split(";");
         nadminArray = this.config.adminNewNames.split(";");
+
+        // Removes people trying fake admin
+        var iq = 0;
+
+        function checkName() {
+            if (iq !== nadminArray.length) {
+                if (player.name == nadminArray[iq]) {
+                    console.log("\u001B[31m[Master]\u001B[0m User tried to spawn with " + nadminArray[iq] + " but was denied!");
+                    player.name = "";
+                } else {
+                    iq++;
+                    checkName();
+                }
+            }
+        }
+
+        // Checks for users with password name
         var ii = 0;
+
         function checkAdmin() {
             if (ii !== adminArray.length) {
                 if (player.name == adminArray[ii]) {
                     isAdmin = true;
                     console.log("\u001B[31m[Master]\u001B[0m " + nadminArray[ii] + " has successfully logged in using " + adminArray[ii]);
                 } else {
-                    ii = ii + 1;
+                    ii++;
                     checkAdmin();
                 }
             }
         }
+
+        // Run the functions
+        if (this.config.adminBlockNames == 1) {
+            checkName();
+        }
         checkAdmin();
+    }
+
+    // Name block stuff!
+    if (this.config.playerNameBlock.length > 0) {
+        blockedNames = this.config.playerNameBlock.split(";");
+        var iz = 0;
+
+        function nameBlock() {
+            if (iz !== blockedNames.length) {
+                if (player.name == blockedNames[iz]) {
+                    console.log("\u001B[31m[Master]\u001B[0m User tried to spawn with " + blockedNames[iz] + " but was denied!");
+                    player.name = "";
+                } else {
+                    iz++;
+                    nameBlock();
+                }
+            }
+        }
+        nameBlock();
     }
 
     if (pos == null) { // Get random pos
@@ -536,8 +582,13 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
         x: pos.x,
         y: pos.y
     };
+
+    // Will be needed for console commands.
+    var playerName = player.name;
+    if (playerName == "") playerName = "An unnamed cell";
+
     if (this.config.serverLogLevel == 1) {
-        console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m " + player.name + " has spawned.");
+        console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m " + playerName + " has spawned.");
     }
 };
 
@@ -663,7 +714,7 @@ GameServer.prototype.setAsMovingNode = function(node) {
     this.movingNodes.push(node);
 };
 
-GameServer.prototype.formatTime = function () {
+GameServer.prototype.formatTime = function() {
     var hour = this.time.getHours();
     hour = (hour < 10 ? "0" : "") + hour;
 
@@ -702,7 +753,27 @@ GameServer.prototype.splitCells = function(client) {
             y: cell.position.y + (size * Math.cos(angle))
         };
         // Calculate mass and speed of splitting cell
-        var splitSpeed = cell.getSpeed() * 6;
+        if (cell.mass < 250) {
+            var splitSpeed = cell.getSpeed() * 9;
+        }
+        if (cell.mass >= 250 && cell.mass < 500) {
+            var splitSpeed = cell.getSpeed() * 8;
+        }
+        if (cell.mass >= 500 && cell.mass < 1000) {
+            var splitSpeed = cell.getSpeed() * 7;
+        }
+        if (cell.mass >= 1000 && cell.mass < 2000) {
+            var splitSpeed = cell.getSpeed() * 6;
+        }
+        if (cell.mass >= 2000 && cell.mass < 4000) {
+            var splitSpeed = cell.getSpeed() * 5;
+        }
+        if (cell.mass >= 4000 && cell.mass < 8000) {
+            var splitSpeed = cell.getSpeed() * 4;
+        }
+        if (cell.mass >= 8000) {
+            var splitSpeed = cell.getSpeed() * 3;
+        }
         var newMass = cell.mass / 2;
         cell.mass = newMass;
         // Create cell
@@ -721,7 +792,7 @@ GameServer.prototype.ejectMass = function(client) {
     if (typeof client.lastEject == 'undefined' || this.time - client.lastEject >= this.config.ejectMassCooldown) {
         for (var i = 0, llen = client.cells.length; i < llen; i++) {
             var cell = client.cells[i];
-            if ( (!cell) || (cell.mass < this.config.playerMinMassEject)) {
+            if ((!cell) || (cell.mass < this.config.playerMinMassEject)) {
                 continue;
             }
             var deltaY = client.mouse.y - cell.position.y;
@@ -731,8 +802,8 @@ GameServer.prototype.ejectMass = function(client) {
             // Get starting position
             var size = cell.getSize() + 5;
             var startPos = {
-                x: cell.position.x + ( (size + this.config.ejectMass) * Math.sin(angle) ),
-                y: cell.position.y + ( (size + this.config.ejectMass) * Math.cos(angle) )
+                x: cell.position.x + ((size + this.config.ejectMass) * Math.sin(angle)),
+                y: cell.position.y + ((size + this.config.ejectMass) * Math.cos(angle))
             };
 
             // Remove mass from parent cell
@@ -1053,7 +1124,9 @@ WebSocket.prototype.sendPacket = function(packet) {
     // Send only if the buffer is empty
     if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0)) {
         try {
-            this.send(packet.build(), {binary: true});
+            this.send(packet.build(), {
+                binary: true
+            });
         } catch (e) {
             // console.log("\u001B[31m[Socket Error] " + e + "\u001B[0m");
         }
