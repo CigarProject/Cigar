@@ -34,14 +34,23 @@ Virus.prototype.getEatingRange = function() {
     return this.getSize() * .4; // 0 for ejected cells
 };
 
-Virus.prototype.onConsume = function(consumer,gameServer) {
+Virus.prototype.onConsume = function(consumer, gameServer) {
     var client = consumer.owner;
 
     // Cell consumes mass before splitting
     consumer.addMass(this.mass);
     
     var maxSplits = Math.floor(consumer.mass/16) - 1; // Maximum amount of splits
-    var numSplits = gameServer.config.playerMaxCells - client.cells.length; // Get number of splits
+    if (gameServer.config.virusSmallerSplits == 1) {
+        if (consumer.mass > 500) {
+            var numSplits = gameServer.config.playerMaxCells - client.cells.length; // Get number of splits
+            console.log("User over 500 mass.");
+        } else {
+            var numSplits = 10 - client.cells.length; // Get number of splits
+        }
+    } else {
+        var numSplits = gameServer.config.playerMaxCells - client.cells.length; // Get number of splits
+    }
     numSplits = Math.min(numSplits,maxSplits);
     var splitMass = Math.min(consumer.mass/(numSplits + 1), 32); // Maximum size of new splits
 

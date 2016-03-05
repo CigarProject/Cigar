@@ -84,6 +84,7 @@ function GameServer(realmID, confile) {
         virusMaxAmount: 50, // Maximum amount of viruses on the map. If this amount is reached, then ejected cells will pass through viruses.
         virusStartMass: 100, // Starting virus size (In mass)
         virusFeedAmount: 7, // Amount of times you need to feed a virus to shoot it
+        virusSmallerSplits: 0, // Better splits when small.
         ejectMass: 12, // Mass of ejected cells
         ejectMassLoss: 16, // Mass lost when ejecting cells
         ejectSpeed: 160, // Base speed of ejected cells
