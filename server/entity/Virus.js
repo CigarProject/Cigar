@@ -44,7 +44,6 @@ Virus.prototype.onConsume = function(consumer, gameServer) {
     if (gameServer.config.virusSmallerSplits == 1) {
         if (consumer.mass > 500) {
             var numSplits = gameServer.config.playerMaxCells - client.cells.length; // Get number of splits
-            console.log("User over 500 mass.");
         } else {
             var numSplits = 10 - client.cells.length; // Get number of splits
         }
