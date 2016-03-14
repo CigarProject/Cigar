@@ -107,6 +107,7 @@ function GameServer(realmID, confile) {
         playerFDMultiplier: 2, // Fast decay multiplier
         playerFDMass: 5000, // Mass to start fast decay at.
         playerNameBlock: "", // Names to block from playing.
+        playerSplitSpeed: 0, // Split speed of the cells.
         tourneyMaxPlayers: 12, // Maximum amount of participants for tournament style game modes
         tourneyPrepTime: 10, // Amount of ticks to wait after all players are ready (1 tick = 1000 ms)
         tourneyEndTime: 30, // Amount of ticks to wait after a player wins (1 tick = 1000 ms)
@@ -777,6 +778,7 @@ GameServer.prototype.splitCells = function(client) {
         if (cell.mass >= 8000) {
             var splitSpeed = cell.getSpeed() * 3;
         }
+        splitSpeed = splitSpeed + this.config.playerSplitSpeed * 2;
         var newMass = cell.mass / 2;
         cell.mass = newMass;
         // Create cell
