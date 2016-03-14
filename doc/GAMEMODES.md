@@ -9,4 +9,5 @@ Id   | Name
 11   | Hunger Games
 12   | Zombie Mode
 13	 | Zombie Team
+14	 | Leap
 20   | Rainbow FFA
