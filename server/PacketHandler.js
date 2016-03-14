@@ -188,6 +188,21 @@ PacketHandler.prototype.handleMessage = function(message) {
                 break;
             }
 
+            blockedWords = this.gameServer.config.chatBlockedWords.split(";");
+
+            // Removes filtered words.
+            var chatFilter = 0;
+
+            function checkChat() {
+                if (chatFilter !== blockedWords.length) {
+                    message = message.replace(blockedWords[chatFilter], "****");
+                    chatFilter++;
+                    checkChat();
+                }
+            }
+
+            checkChat();
+
             this.socket.playerTracker.cTime = date;
             var LastMsg;
             if (message == LastMsg) {

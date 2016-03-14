@@ -75,6 +75,8 @@ function GameServer(realmID, confile) {
         borderBottom: 6000, // Bottom border of map (Vanilla value: 11180.3398875)
         chatMaxMessageLength: 70, // Length of messages in chat
         chatIntervalTime: 2500, // ms between each message.
+        chatBlockedWords: "fuck;bitch", // Words to filter from chat
+        chatBlockedWordsTo: "****", // Word to change filtered words to.
         spawnInterval: 20, // The interval between each food cell spawn in ticks (1 tick = 50 ms)
         foodSpawnAmount: 10, // The amount of food to spawn per interval
         foodStartAmount: 100, // The starting amount of food in the map
