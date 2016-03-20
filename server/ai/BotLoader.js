@@ -31,9 +31,10 @@ BotLoader.prototype.loadNames = function() {
     // Load names
     try {
         var fs = require("fs"); // Import the util library
+        var path = require("path");
 
         // Read and parse the names - filter out whitespace-only names
-        this.randomNames = fs.readFileSync("./botnames.txt", "utf8").split(/[\r\n]+/).filter(function(x) {
+        this.randomNames = fs.readFileSync(path.join(__dirname, '../', 'botnames.txt'), "utf8").split(/[\r\n]+/).filter(function(x) {
             return x != ''; // filter empty names
         });
     } catch (e) {
