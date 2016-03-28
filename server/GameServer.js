@@ -1128,17 +1128,15 @@ GameServer.prototype.switchSpectator = function(player) {
 
 // Custom prototype functions
 WebSocket.prototype.sendPacket = function(packet) {
-    // Send only if the buffer is empty
-    if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0)) {
+    if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0) && packet.build) {
         try {
-            this.send(packet.build(), {
-                binary: true
-            });
+            this.send(packet.build(), {binary: true});
         } catch (e) {
-            // console.log("\u001B[31m[Socket Error] " + e + "\u001B[0m");
+            console.log("[Error] "+e);
+            this.emit('close');
+            this.removeAllListeners();
         }
     } else {
-        // Remove socket
         this.emit('close');
         this.removeAllListeners();
     }
