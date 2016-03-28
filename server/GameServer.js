@@ -1020,10 +1020,12 @@ GameServer.prototype.updateCells = function() {
         }
 
         // Mass decay
-        if (cell.mass >= this.config.playerFDMass) {
-            cell.mass *= massDecay - (this.config.playerFDMultiplier / 500);
-        } else {
-            cell.mass *= massDecay;
+        if (cell.mass >= this.config.playerMinMassDecay) {
+            if (cell.mass >= this.config.playerFDMass) {
+                cell.mass *= massDecay - (this.config.playerFDMultiplier / 500);
+            } else {
+                cell.mass *= massDecay;
+            }
         }
     }
 };
