@@ -508,40 +508,20 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
         nadminArray = this.config.adminNewNames.split(";");
 
         // Removes people trying fake admin
-        var iq = 0;
-
-        function checkName() {
-            if (iq !== nadminArray.length) {
-                if (player.name == nadminArray[iq]) {
-                    console.log("\u001B[31m[Master]\u001B[0m User tried to spawn with " + nadminArray[iq] + " but was denied!");
-                    player.name = "";
-                } else {
-                    iq++;
-                    checkName();
-                }
+        for (i = 0; i < nadminArray.length; i++) {
+            if (player.name == nadminArray[i]) {
+                console.log("\u001B[31m[Master]\u001B[0m User tried to spawn with " + nadminArray[i] + " but was denied!");
+                player.name = "";
             }
         }
 
         // Checks for users with password name
-        var ii = 0;
-
-        function checkAdmin() {
-            if (ii !== adminArray.length) {
-                if (player.name == adminArray[ii]) {
-                    isAdmin = true;
-                    console.log("\u001B[31m[Master]\u001B[0m " + nadminArray[ii] + " has successfully logged in using " + adminArray[ii]);
-                } else {
-                    ii++;
-                    checkAdmin();
-                }
+        for (i = 0; i < adminArray.length; i++) {
+            if (player.name == adminArray[i]) {
+                isAdmin = true;
+                console.log("\u001B[31m[Master]\u001B[0m " + nadminArray[i] + " has successfully logged in using " + adminArray[i]);
             }
         }
-
-        // Run the functions
-        if (this.config.adminBlockNames == 1) {
-            checkName();
-        }
-        checkAdmin();
     }
 
     // Name block stuff!
