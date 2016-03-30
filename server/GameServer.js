@@ -107,7 +107,8 @@ function GameServer(realmID, confile) {
         playerFDMultiplier: 2, // Fast decay multiplier
         playerFDMass: 5000, // Mass to start fast decay at.
         playerNameBlock: "", // Names to block from playing.
-        playerSplitSpeed: 0, // Split speed of the cells.
+        playerBetterSplits: 1, // Better cell splits.
+        playerSplitSpeed: 8, // Split speed of the cells.
         tourneyMaxPlayers: 12, // Maximum amount of participants for tournament style game modes
         tourneyPrepTime: 10, // Amount of ticks to wait after all players are ready (1 tick = 1000 ms)
         tourneyEndTime: 30, // Amount of ticks to wait after a player wins (1 tick = 1000 ms)
@@ -501,6 +502,7 @@ GameServer.prototype.spawnFood = function() {
 
 GameServer.prototype.spawnPlayer = function(player, pos, mass) {
     var isAdmin = false;
+
     // Check for config
     if (this.config.adminConfig == 1) {
         // Make the required variables
@@ -527,20 +529,13 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
     // Name block stuff!
     if (this.config.playerNameBlock.length > 0) {
         blockedNames = this.config.playerNameBlock.split(";");
-        var iz = 0;
 
-        function nameBlock() {
-            if (iz !== blockedNames.length) {
-                if (player.name == blockedNames[iz]) {
-                    console.log("\u001B[31m[Master]\u001B[0m User tried to spawn with " + blockedNames[iz] + " but was denied!");
-                    player.name = "";
-                } else {
-                    iz++;
-                    nameBlock();
-                }
+        for (i = 0; i < blockedNames.length; i++) {
+            if (player.name == blockedNames[i]) {
+                console.log("\u001B[31m[Master]\u001B[0m User tried to spawn with " + blockedNames[iz] + " but was denied!");
+                player.name = "";
             }
         }
-        nameBlock();
     }
 
     if (pos == null) { // Get random pos
@@ -552,7 +547,7 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
     }
 
     // Spawn player and add to world
-    if (isAdmin == true) {
+    if (isAdmin) {
         player.name = nadminArray[ii];
         var cell = new Entity.PlayerCell(this.getNextNodeId(), player, pos, this.config.adminStartMass);
     } else {
@@ -710,6 +705,7 @@ GameServer.prototype.formatTime = function() {
 
 GameServer.prototype.splitCells = function(client) {
     var len = client.cells.length;
+
     for (var i = 0; i < len; i++) {
         if (client.cells.length >= this.config.playerMaxCells) {
             // Player cell limit
@@ -736,29 +732,17 @@ GameServer.prototype.splitCells = function(client) {
             x: cell.position.x + (size * Math.sin(angle)),
             y: cell.position.y + (size * Math.cos(angle))
         };
+
         // Calculate mass and speed of splitting cell
-        if (cell.mass < 250) {
-            var splitSpeed = cell.getSpeed() * 9;
+        if (this.config.playerBetterSplits == 1) {
+            // Formula made by DaFudgeWizzad
+            var sf = Math.pow(0.99980, cell.mass);
+            var splitFormula = sf * 9.5;
+            var splitSpeed = cell.getSpeed() * splitFormula;
+        } else {
+            var splitSpeed = cell.getSpeed() * this.config.playerSplitSpeed;
         }
-        if (cell.mass >= 250 && cell.mass < 500) {
-            var splitSpeed = cell.getSpeed() * 8;
-        }
-        if (cell.mass >= 500 && cell.mass < 1000) {
-            var splitSpeed = cell.getSpeed() * 7;
-        }
-        if (cell.mass >= 1000 && cell.mass < 2000) {
-            var splitSpeed = cell.getSpeed() * 6;
-        }
-        if (cell.mass >= 2000 && cell.mass < 4000) {
-            var splitSpeed = cell.getSpeed() * 5;
-        }
-        if (cell.mass >= 4000 && cell.mass < 8000) {
-            var splitSpeed = cell.getSpeed() * 4;
-        }
-        if (cell.mass >= 8000) {
-            var splitSpeed = cell.getSpeed() * 3;
-        }
-        splitSpeed = splitSpeed + this.config.playerSplitSpeed * 2;
+
         var newMass = cell.mass / 2;
         cell.mass = newMass;
         // Create cell
