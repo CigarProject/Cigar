@@ -522,6 +522,7 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
             if (player.name == adminArray[i]) {
                 isAdmin = true;
                 console.log("\u001B[31m[Master]\u001B[0m " + nadminArray[i] + " has successfully logged in using " + adminArray[i]);
+                player.name = nadminArray[i];
             }
         }
     }
@@ -548,7 +549,6 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
 
     // Spawn player and add to world
     if (isAdmin) {
-        player.name = nadminArray[ii];
         var cell = new Entity.PlayerCell(this.getNextNodeId(), player, pos, this.config.adminStartMass);
     } else {
         var cell = new Entity.PlayerCell(this.getNextNodeId(), player, pos, mass);
