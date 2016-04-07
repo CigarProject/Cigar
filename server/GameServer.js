@@ -533,7 +533,7 @@ GameServer.prototype.spawnPlayer = function(player, pos, mass) {
 
         for (i = 0; i < blockedNames.length; i++) {
             if (player.name == blockedNames[i]) {
-                console.log("\u001B[31m[Master]\u001B[0m User tried to spawn with " + blockedNames[iz] + " but was denied!");
+                console.log("\u001B[31m[Master]\u001B[0m User tried to spawn with " + blockedNames[i] + " but was denied!");
                 player.name = "";
             }
         }
