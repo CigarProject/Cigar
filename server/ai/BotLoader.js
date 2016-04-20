@@ -35,7 +35,7 @@ BotLoader.prototype.loadNames = function() {
     } catch (e) {
         // Nothing, use the default names
     }
-
+    try {
         // Read and parse the names - filter out whitespace-only names
         this.randomNames = fs.readFileSync(path.join(__dirname, '../', 'botnames.txt'), "utf8").split(/[\r\n]+/).filter(function(x) {
             return x != ''; // filter empty names
