@@ -91,11 +91,11 @@ function ensureDirExists(path, mask, cb) {
 // Console functions
 
 function prompt() {
-    in_.question("<" + selected.server.realmID + ">", function(str) {
+    in_.question(">", function(str) {
         parseCommands(str);
         return prompt(); // Too lazy to learn async
     });
-};
+}
 
 function parseCommands(str) {
     // Splits the string

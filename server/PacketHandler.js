@@ -53,7 +53,6 @@ PacketHandler.prototype.handleMessage = function(message) {
             // Spectate mode
             if (this.socket.playerTracker.cells.length <= 0) {
                 // Make sure client has no cells
-                this.gameServer.switchSpectator(this.socket.playerTracker);
                 this.socket.playerTracker.spectate = true;
             }
             break;
@@ -62,9 +61,11 @@ PacketHandler.prototype.handleMessage = function(message) {
             if (view.byteLength == 21) {
                 // Mouse Move
                 var client = this.socket.playerTracker;
-                client.mouse.x = view.getFloat64(1, true);
-                client.mouse.y = view.getFloat64(9, true);
+                client.mouse.x = view.getFloat64(1, true) - client.scrambleX;
+                client.mouse.y = view.getFloat64(9, true) - client.scrambleY;
             }
+
+            client.movePacketTriggered = true;
             break;
         case 17:
             // Space Press - Split cell
