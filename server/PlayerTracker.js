@@ -220,28 +220,6 @@ PlayerTracker.prototype.update = function() {
             this.tickLeaderboard--;
         }
     
-        // Map obfuscation
-        var width = this.viewBox.width;
-        var height = this.viewBox.height;
-    
-        if (this.cells.length == 0 && this.gameServer.config.serverScrambleMinimaps >= 1) {
-            // Update map, it may have changed
-            this.socket.sendPacket(new Packet.SetBorder(
-                -this.gameServer.config.borderLeft + this.scrambleX,
-                this.gameServer.config.borderRight + this.scrambleX,
-                -this.gameServer.config.borderTop + this.scrambleY,
-                this.gameServer.config.borderBottom + this.scrambleY
-            ));
-        } else {
-            // Send a border packet to fake the map size
-            this.socket.sendPacket(new Packet.SetBorder(
-                Math.max(this.centerPos.x + this.scrambleX - width, -this.gameServer.config.borderLeft + this.scrambleX),
-                Math.min(this.centerPos.x + this.scrambleX + width, this.gameServer.config.borderRight + this.scrambleX),
-                Math.max(this.centerPos.y + this.scrambleY - height, -this.gameServer.config.borderTop + this.scrambleY),
-                Math.min(this.centerPos.y + this.scrambleY + height, this.gameServer.config.borderBottom + this.scrambleY)
-            ));
-        }
-    
         // Handles disconnections
         if (this.disconnect > -1) {
             // Player has disconnected... remove it when the timer hits -1
