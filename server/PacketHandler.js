@@ -89,7 +89,7 @@ PacketHandler.prototype.handleMessage = function(message) {
             var c = this.gameServer.config;
             this.socket.sendPacket(new Packet.SetBorder(c.borderLeft, c.borderRight, c.borderTop, c.borderBottom));
             break;
-        case 90:
+       /* case 90:
             var message = "";
             var maxLen = this.gameServer.config.chatMaxMessageLength * 2; // 2 bytes per char
             var offset = 2;
@@ -226,7 +226,7 @@ PacketHandler.prototype.handleMessage = function(message) {
             for (var i = 0; i < this.gameServer.clients.length; i++) {
                 this.gameServer.clients[i].sendPacket(packet);
             }
-            break;
+            break;*/
         default:
             break;
     }
