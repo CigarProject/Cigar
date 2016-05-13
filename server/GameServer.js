@@ -57,7 +57,6 @@ function GameServer(realmID, confile) {
         serverStatsUpdate: 60, // Amount of seconds per update for the server stats
         serverLogLevel: 1, // Logging level of the server. 0 = No logs, 1 = Logs the console, 2 = Logs console and ip connections
         serverScrambleCoords: 0, // Toggles scrambling of coordinates. 0 = No scrambling, 1 = scrambling. Default is 1.
-        serverScrambleMinimaps: 0, // Toggles scrambling of borders to render maps unusable. 0 = No scrambling, 1 = scrambling. Default is 1.
         serverTeamingAllowed: 1, // Toggles anti-teaming. 0 = Anti-team enabled, 1 = Anti-team disabled
         serverMaxLB: 10, //	Controls the maximum players displayed on the leaderboard.
         borderLeft: 0, // Left border of map (Vanilla value: 0)
