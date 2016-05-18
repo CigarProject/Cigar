@@ -14,9 +14,9 @@ var BotLoader = require('./ai/BotLoader');
 
 // GameServer implementation
 function GameServer(realmID, confile) {
-	// Master server stuff
-	this.realmID = realmID;
-	this.masterServer;
+    // Master server stuff
+    this.realmID = realmID;
+    this.masterServer;
 
     // Startup
     this.run = true;
@@ -128,7 +128,7 @@ GameServer.prototype.start = function() {
 
         // Done
         console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Game Server started at port %d", this.config.serverPort);
-		console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Stats Server started at port %d", this.config.serverStatsPort);
+        console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Stats Server started at port %d", this.config.serverStatsPort);
         console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Current game mode is " + this.gameMode.name);
 
         // Player bots (Experimental)
@@ -219,7 +219,7 @@ GameServer.prototype.start = function() {
         }
 
         // Back to game server stuff
-		function close(error) {
+        function close(error) {
             //console.log("[Game] Disconnect: "+error);
 
             var client = this.socket.playerTracker;
@@ -232,7 +232,7 @@ GameServer.prototype.start = function() {
                 }
 
                 cell.disconnect = this.server.config.playerDisconnectTime;
-				cell.calcMove = function() {
+                cell.calcMove = function() {
                     return;
                 }; // Clear function so that the cell cant move
                 //this.server.removeNode(cell);
@@ -245,7 +245,7 @@ GameServer.prototype.start = function() {
         }
 
         // console.log("[Game] Connect: %s:%d", ws._socket.remoteAddress, ws._socket.remotePort);
-		ws.remoteAddress = ws._socket.remoteAddress;
+        ws.remoteAddress = ws._socket.remoteAddress;
         ws.remotePort = ws._socket.remotePort;
         ws.playerTracker = new PlayerTracker(this, ws);
         ws.packetHandler = new PacketHandler(this, ws);
@@ -268,8 +268,8 @@ GameServer.prototype.getName = function() {
 }
 
 GameServer.prototype.getMode = function() {
-	// Gets the name of this server. For use in the console
-	return "\u001B[33m[Game:" + this.realmID + "]\u001B[0m";
+    // Gets the name of this server. For use in the console
+    return "\u001B[33m[Game:" + this.realmID + "]\u001B[0m";
 };
 
 GameServer.prototype.getMode = function() {
@@ -306,7 +306,7 @@ GameServer.prototype.getRandomSpawn = function(mass) {
     var pos = this.getRandomPosition();
     var unsafe = this.willCollide(mass, pos, mass == this.config.virusStartMass);
     var attempt = 1;
-    
+
     // Prevent stack overflow by counting attempts
     while (true) {
         if (!unsafe || attempt >= 15) break;
@@ -314,7 +314,7 @@ GameServer.prototype.getRandomSpawn = function(mass) {
         unsafe = this.willCollide(mass, pos, mass == this.config.virusStartMass);
         attempt++;
     }
-    
+
     // If it reached attempt 15, warn the user
     if (attempt >= 14) {
         console.log("[Server] Entity was force spawned near viruses/playercells after 15 attempts.");
@@ -337,10 +337,10 @@ GameServer.prototype.getRandomColor = function() {
 };
 
 GameServer.prototype.exitServer = function() {
-	console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Server shutting down.")
-	this.socketServer.close();
-	process.exit(1);
-	window.close();
+    console.log("\u001B[33m[Game:" + this.realmID + "]\u001B[0m Server shutting down.")
+    this.socketServer.close();
+    process.exit(1);
+    window.close();
 };
 
 GameServer.prototype.addNode = function(node) {
@@ -534,7 +534,7 @@ GameServer.prototype.virusCheck = function() {
     if (this.nodesVirus.length < this.config.virusMinAmount) {
         // Spawns a virus
         var pos = this.getRandomSpawn(this.config.virusStartMass);
-        
+
         var v = new Entity.Virus(this.getNextNodeId(), null, pos, this.config.virusStartMass, this);
         this.addNode(v);
     }
@@ -543,7 +543,7 @@ GameServer.prototype.virusCheck = function() {
 GameServer.prototype.willCollide = function(mass, pos, isVirus) {
     // Look if there will be any collision with the current nodes
     var size = Math.sqrt(mass * 100) >> 0;
-    
+
     for (var i = 0; i < this.nodesPlayer.length; i++) {
         var check = this.nodesPlayer[i];
         if (!check) continue;
@@ -558,13 +558,13 @@ GameServer.prototype.willCollide = function(mass, pos, isVirus) {
             if (dist + size <= check.getSize()) return true; // Collided
         }
     }
-    
+
     if (isVirus) return false; // Don't check for viruses if the new cell will be virus
-    
+
     for (var i = 0; i < this.nodesVirus.length; i++) {
         var check = this.nodesVirus[i];
         if (!check) continue;
-        
+
         // Eating range
         var xs = check.position.x - pos.x,
             ys = check.position.y - pos.y,
@@ -638,7 +638,7 @@ GameServer.prototype.updateMoveEngine = function() {
         // Sort client's cells by ascending mass
         var sorted = [];
         for (var i = 0; i < client.cells.length; i++) sorted.push(client.cells[i]);
-        
+
         sorted.sort(function(a, b) {
             return b.mass - a.mass;
         });
@@ -665,7 +665,6 @@ GameServer.prototype.updateMoveEngine = function() {
             this.cellEating(cell);
         }
     }
-
 
     // A system to move cells not controlled by players (ex. viruses, ejected mass)
     len = this.movingNodes.length;
@@ -811,7 +810,7 @@ GameServer.prototype.ejectMass = function(client) {
 
         // Remove mass from parent cell
         cell.mass -= this.config.ejectMassLoss;
-        
+
         // Randomize angle
         angle += (Math.random() * 0.6) - 0.3;
 
@@ -869,7 +868,7 @@ GameServer.prototype.getCellsInRange = function(cell) {
         if ((cell.owner == check.owner) && (cell.collisionRestoreTicks != 0) && (check.cellType == 0)) {
             continue;
         }
-        
+
         // Eating range
         var xs = cell.position.x - check.position.x,
             ys = cell.position.y - check.position.y,
@@ -883,7 +882,7 @@ GameServer.prototype.getCellsInRange = function(cell) {
             else {
                 // Add to list of cells nearby
                 list.push(check);
-    
+
                 // Something is about to eat this cell; no need to check for other collisions with it
                 check.inRange = true;
                 continue; // No need to look for type and calculate if eaten again
@@ -929,7 +928,7 @@ GameServer.prototype.getCellsInRange = function(cell) {
         if ((check.mass * multiplier) > cell.mass) {
             continue;
         }
-        
+
         // Eating range = radius of eating cell / 2 - 31% of the radius of the cell being eaten
         var eatingRange = cell.getSize() - check.getEatingRange();
 
@@ -1071,7 +1070,7 @@ GameServer.prototype.getStats = function() {
             players++;
     });
     var s = {
-		'name': this.config.serverName,
+        'name': this.config.serverName,
         'current_players': this.clients.length,
         'alive': players,
         'spectators': this.clients.length - players,
@@ -1084,15 +1083,29 @@ GameServer.prototype.getStats = function() {
 
 // Custom prototype functions
 WebSocket.prototype.sendPacket = function(packet) {
-    if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0) && packet.build) {
-        try {
-            this.send(packet.build(), {binary: true});
-        } catch (e) {
-            console.log("[Error] "+e);
-            this.emit('close');
-            this.removeAllListeners();
+    function getBuf(data) {
+        var array = new Uint8Array(data.buffer || data);
+        var l = data.byteLength || data.length;
+        var o = data.byteOffset || 0;
+        var buffer = new Buffer(l);
+
+        for (var i = 0; i < l; i++) {
+            buffer[i] = array[o + i];
         }
+
+        return buffer;
+    }
+
+    //if (this.readyState == WebSocket.OPEN && (this._socket.bufferSize == 0) && packet.build) {
+    if (this.readyState == WebSocket.OPEN && packet.build) {
+        var buf = packet.build();
+        this.send(getBuf(buf), {
+            binary: true
+        });
+    } else if (!packet.build) {
+        // Do nothing
     } else {
+        this.readyState = WebSocket.CLOSED;
         this.emit('close');
         this.removeAllListeners();
     }
