@@ -64,8 +64,6 @@ PacketHandler.prototype.handleMessage = function(message) {
                 client.mouse.x = view.getFloat64(1, true) - client.scrambleX;
                 client.mouse.y = view.getFloat64(9, true) - client.scrambleY;
             }
-
-            client.movePacketTriggered = true;
             break;
         case 17:
             // Space Press - Split cell
