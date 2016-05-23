@@ -53,7 +53,6 @@ PacketHandler.prototype.handleMessage = function(message) {
             // Spectate mode
             if (this.socket.playerTracker.cells.length <= 0) {
                 // Make sure client has no cells
-                this.gameServer.switchSpectator(this.socket.playerTracker);
                 this.socket.playerTracker.spectate = true;
             }
             break;
@@ -62,8 +61,8 @@ PacketHandler.prototype.handleMessage = function(message) {
             if (view.byteLength == 21) {
                 // Mouse Move
                 var client = this.socket.playerTracker;
-                client.mouse.x = view.getFloat64(1, true);
-                client.mouse.y = view.getFloat64(9, true);
+                client.mouse.x = view.getFloat64(1, true) - client.scrambleX;
+                client.mouse.y = view.getFloat64(9, true) - client.scrambleY;
             }
             break;
         case 17:
@@ -115,7 +114,7 @@ PacketHandler.prototype.handleMessage = function(message) {
                 this.gameServer.clients[i].sendPacket(packet);
             }
             break;
-        case 256:
+        /* case 256:
             // Connection Start
             if (view.byteLength == 5) {
                 var c = this.gameServer.config,
@@ -131,7 +130,7 @@ PacketHandler.prototype.handleMessage = function(message) {
                     this.socket.close();
                 }
             }
-            break;
+            break; */
         case 99:
             var message = "",
                 maxLen = this.gameServer.config.chatMaxMessageLength * 2,
@@ -187,21 +186,6 @@ PacketHandler.prototype.handleMessage = function(message) {
                 // Happens when user tries to spam
                 break;
             }
-
-            blockedWords = this.gameServer.config.chatBlockedWords.split(";");
-
-            // Removes filtered words.
-            var chatFilter = 0;
-
-            function checkChat() {
-                if (chatFilter !== blockedWords.length) {
-                    message = message.replace(blockedWords[chatFilter], "****");
-                    chatFilter++;
-                    checkChat();
-                }
-            }
-
-            checkChat();
 
             this.socket.playerTracker.cTime = date;
             var LastMsg;

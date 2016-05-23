@@ -12,7 +12,8 @@
     "hbs": "^2.9.0",
     "morgan": "^1.5.3",
     "serve-favicon": "^2.2.1",
-    "connect-busboy": "^0.0.2"
+    "connect-busboy": "^0.0.2",
+    "vector2-node": "latest"
   },
   "devDependencies": {},
   "scripts": {

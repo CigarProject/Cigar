@@ -5,11 +5,11 @@ module.exports = {
     Experimental: require('./Experimental'),
     Tournament: require('./Tournament'),
     HungerGames: require('./HungerGames'),
-	Rainbow: require('./Rainbow'),
+    Rainbow: require('./Rainbow'),
     Debug: require('./Debug'),
     Zombie: require('./Zombie'),
     TeamZ: require('./TeamZ.js'),
-    Leap: require('./Leap.js')
+    TeamX: require('./TeamX.js')
 };
 
 var get = function(id) {
@@ -33,8 +33,8 @@ var get = function(id) {
         case 13: // Zombie Team
             mode = new module.exports.TeamZ();
             break;
-        case 14: // Leap
-            mode = new module.exports.Leap();
+        case 14: // Experimental Team
+            mode = new module.exports.TeamX();
             break;
         case 20: // Rainbow
             mode = new module.exports.Rainbow();
@@ -50,4 +50,3 @@ var get = function(id) {
 };
 
 module.exports.get = get;
-
