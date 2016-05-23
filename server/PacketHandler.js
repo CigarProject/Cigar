@@ -64,8 +64,6 @@ PacketHandler.prototype.handleMessage = function(message) {
                 client.mouse.x = view.getFloat64(1, true) - client.scrambleX;
                 client.mouse.y = view.getFloat64(9, true) - client.scrambleY;
             }
-
-            client.movePacketTriggered = true;
             break;
         case 17:
             // Space Press - Split cell
@@ -89,7 +87,7 @@ PacketHandler.prototype.handleMessage = function(message) {
             var c = this.gameServer.config;
             this.socket.sendPacket(new Packet.SetBorder(c.borderLeft, c.borderRight, c.borderTop, c.borderBottom));
             break;
-       /* case 90:
+        case 90:
             var message = "";
             var maxLen = this.gameServer.config.chatMaxMessageLength * 2; // 2 bytes per char
             var offset = 2;
@@ -116,7 +114,7 @@ PacketHandler.prototype.handleMessage = function(message) {
                 this.gameServer.clients[i].sendPacket(packet);
             }
             break;
-        case 256:
+        /* case 256:
             // Connection Start
             if (view.byteLength == 5) {
                 var c = this.gameServer.config,
@@ -132,7 +130,7 @@ PacketHandler.prototype.handleMessage = function(message) {
                     this.socket.close();
                 }
             }
-            break;
+            break; */
         case 99:
             var message = "",
                 maxLen = this.gameServer.config.chatMaxMessageLength * 2,
@@ -189,21 +187,6 @@ PacketHandler.prototype.handleMessage = function(message) {
                 break;
             }
 
-            blockedWords = this.gameServer.config.chatBlockedWords.split(";");
-
-            // Removes filtered words.
-            var chatFilter = 0;
-
-            function checkChat() {
-                if (chatFilter !== blockedWords.length) {
-                    message = message.replace(blockedWords[chatFilter], "****");
-                    chatFilter++;
-                    checkChat();
-                }
-            }
-
-            checkChat();
-
             this.socket.playerTracker.cTime = date;
             var LastMsg;
             if (message == LastMsg) {
@@ -226,7 +209,7 @@ PacketHandler.prototype.handleMessage = function(message) {
             for (var i = 0; i < this.gameServer.clients.length; i++) {
                 this.gameServer.clients[i].sendPacket(packet);
             }
-            break;*/
+            break;
         default:
             break;
     }

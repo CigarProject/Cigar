@@ -18,9 +18,7 @@ function PlayerTracker(gameServer, socket) {
         x: 0,
         y: 0
     };
-    this.shouldMoveCells = true; // False if the mouse packet wasn't triggered
     this.notMoved = false; // If one of cells have been moved after splitting this is triggered
-    this.movePacketTriggered = false;
     this.ignoreNextMoveTick = false; // Screen mouse matches old screen mouse
     this.mouseCells = []; // For individual cell movement
     this.tickLeaderboard = 0;
@@ -113,13 +111,6 @@ PlayerTracker.prototype.getTeam = function() {
 PlayerTracker.prototype.update = function() {
     // Async update, perfomance reasons
     setTimeout(function() {
-        // Move packet update
-        if (this.movePacketTriggered) {
-            this.movePacketTriggered = false;
-            this.shouldMoveCells = true;
-        } else {
-            this.shouldMoveCells = false;
-        }
         // Actions buffer (So that people cant spam packets)
         if (this.socket.packetHandler.pressSpace) { // Split cell
             if (!this.mergeOverride) this.gameServer.gameMode.pressSpace(this.gameServer, this);
