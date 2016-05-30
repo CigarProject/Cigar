@@ -1,3 +1,5 @@
+Please use ItzLevvie's version if you want an updated version of the script. However, it may contain bugs as it is a post-update that will need some more work on it before release. I will be releasing it when I am done with school. Download it at [here.](https://github.com/ItzLevvie/Cigar.)
+
 ![Language](https://img.shields.io/badge/language-JavaScript-yellow.svg)
 
 # Cigar
