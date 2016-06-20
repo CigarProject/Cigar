@@ -413,7 +413,7 @@
         console.log("socket open");
         msg = prepareData(5);
         msg.setUint8(0, 254);
-        msg.setUint32(1, 1, true);
+        msg.setUint32(1, 4, true);
         wsSend(msg);
         msg = prepareData(5);
         msg.setUint8(0, 255);
