@@ -18,6 +18,8 @@
         leftTouchPos = new Vector2(0, 0),
         leftTouchStartPos = new Vector2(0, 0),
         leftVector = new Vector2(0, 0);
+    
+    var useHttps = "https:" == wHandle.location.protocol;
 
     function gameLoop() {
         ma = true;
@@ -257,7 +259,7 @@
 
     function attemptConnection() {
         console.log("Find " + gameMode);
-        wsConnect("ws://" + CONNECTION_URL)
+        wsConnect((useHttps ? "wss://" : "ws://") + CONNECTION_URL)
     }
 
     function showConnecting() {
@@ -278,7 +280,7 @@
             ws = null
         }
         var c = CONNECTION_URL;
-        wsUrl = "ws://" + c;
+        wsUrl = (useHttps ? "wss://" : "ws://") + c;
         nodesOnScreen = [];
         playerCells = [];
         nodes = {};
