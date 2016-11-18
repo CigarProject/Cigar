@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Eat cells smaller than you and don't get eaten by the bigger ones, as an MMO">
+    <meta name="keywords" content="agario, agar, io, cell, cells, virus, bacteria, blob, game, games, web game, html5, fun, flash">
+    <meta name="robots" content="index, follow">
+    <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <title>Home - Cigar</title>
+
+    <link id="favicon" rel="icon" type="image/png" href="assets/img/favicon.png" />
+    <link href='https://fonts.googleapis.com/css?family=Ubuntu:700' rel='stylesheet' type='text/css'>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/index.css" rel="stylesheet">
+
+    <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="assets/js/vector.js"></script>
+    <script src="assets/js/main_out.js"></script>
+</head>
+
+<body>
+    <div id="overlays">
+        <div id="helloDialog">
+            <form role="form">
+                <div class="form-group">
+                    <h2 id="title">CigarProject</h2>
+                </div>
+
+                <div class="form-group">
+                    <input id="nick" class="form-control" placeholder="Nick" maxlength="15" />
+                    <select id="gamemode" class="form-control" onchange="setserver($(this).val());" required>
+                        <option selected disabled>Gamemode:</option>
+                        <option value="127.0.0.1:443">FFA</option>
+                    </select>
+                    <br clear="both" />
+                </div>
+
+                <div class="form-group">
+                    <div class="mb-10">
+                        <a href="uploads.html" class="btn-primary btn btn-info" role="button">Upload Skins</a>
+                        <a href="gallery" class="btn-primary btn btn-info" role="button" style="width: 64.4%;">Skins Gallery</a>
+                    </div>
+
+                    <button type="submit" id="play-btn" onclick="setNick(document.getElementById('nick').value); return false;" class="btn btn-play btn-primary btn-needs-server">Play</button>
+                    <button onclick="$('#settings, #instructions').toggle(); return false;" class="btn btn-info btn-settings" id="settings-btn"><i class="glyphicon glyphicon-cog"></i></button>
+                    <br clear="both" />
+                </div>
+
+                <div id="settings" class="checkbox" style="display:none;">
+                    <div class="form-group" id="mainform">
+                        <button id="spectate-btn" onclick="spectate(); return false;" style="width: 100%" class="btn btn-warning btn-spectate btn-needs-server">Spectate
+                        </button>
+                        <br clear="both" />
+                    </div>
+                    <div style="margin: 6px;">
+                        <label>
+                            <input type="checkbox" onchange="setSkins(!$(this).is(':checked'));"> No skins</label>
+                        <label>
+                            <input type="checkbox" onchange="setNames(!$(this).is(':checked'));"> No names</label>
+                        <label>
+                            <input type="checkbox" onchange="setDarkTheme($(this).is(':checked'));"> Dark Theme</label>
+                        <label>
+                            <input type="checkbox" onchange="setColors($(this).is(':checked'));"> No colors</label>
+                        <label>
+                            <input type="checkbox" onchange="setShowMass($(this).is(':checked'));"> Show mass</label>
+                        <label>
+                            <input type="checkbox" onchange="setSmooth($(this).is(':checked'));"> Smooth Render</label>
+                    </div>
+                </div>
+            </form>
+
+            <div id="instructions">
+                <hr/>
+                <center>
+                	<span class="text-muted">
+						Move your mouse to control your cell<br/>
+						Press <b>Space</b> to split<br/>
+						Press <b>W</b> to eject some mass<br/>
+					</span>
+                </center>
+            </div>
+
+            <hr />
+            <div id="footer">
+                <a href="https://github.com/CigarProject/Cigar" class="text-muted">GitHub/CigarProject</a>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="connecting">
+        <div style="width: 350px; background-color: #FFFFFF; margin: 100px auto; border-radius: 15px; padding: 5px 15px 5px 15px;">
+            <h2>Connecting</h2>
+            <p> If you cannot connect to the servers, check if you have some anti virus or firewall blocking the connection.</p>
+        </div>
+    </div>
+
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <input type="text" id="chat_textbox" maxlength="200" />
+    <div style="font-family:'Ubuntu'">&nbsp;</div>
+</body>
+</html>

@@ -1,56 +1,57 @@
-Currently I can't update the project, I will work on it when I am done with school.
-
-![Language](https://img.shields.io/badge/language-JavaScript-yellow.svg)
+![Version](https://img.shields.io/badge/version-0.01-blue.svg) ![Language](https://img.shields.io/badge/protocol-5-orange.svg)
 
 # Cigar
-A fully functional open source Agar.io server implementation, written in Node.js. Cigar is based on the same code as Ogar, but introduces features that can only be used with unofficial clients.
-
-## Using the official client
-If you are not interested in additional features and only want to connect with the most recent version of the official client, [Ogar](https://github.com/forairan/Ogar) is probably better suited for you. Cigar was [forked](https://en.wikipedia.org/wiki/Fork_(software_development)) from Ogar in order to add features not supported by the official client.
+An unofficial Agar.io client used to run with Ogar based servers. Allows you to connect to an Ogar based server and have the abilities of the new protocol in a smaller and cleaner client.
 
 ## Obtaining and Using
-As Cigar is written in Node.js, you must have Node.js and some dependencies installed to use it. You can usually download Node using your distribution's package manager (for *nix-like systems), or from [the Node website](http://nodejs.org). If you have git installed, download Cigar as follows:
+Due to parts of Cigar require the use of PHP, you will need to have a web environment with PHP for parts to work. So the project will have to be installed on a webserver or localhost.
 
-```sh
-~$ git clone git://github.com/CigarProject/Cigar.git Cigar
-```
+You will need a webserver capable of running PHP only, also it cannot be run off file:// due to cross-origin blocks.
 
-Otherwise download it using the `Download zip` button on the right side. Next, you'll have to cd into the directory. If you downloaded it without using git, you'll have to adjust the path.
+### Now using Protocol 5
+This version of the client is using the new-ish protocol 5. Now supporting larger maps sizes and many different upgrades. As well, you can now use hidden skin setting with the angled brackets, if the server supports it.
 
-```sh
-~$ cd Cigar
-```
-
-Now on different operating systems, you're going to have to run a different file. If you are on Linux, run the following commands:
-
-```
-sh install_modules.sh
-```
-
-And on windows it would running the install_modules.bat file.
-
-Now once you have done that, you can run the masterServer or just the gameservers by selecting the right file for your OS and choice of use.
-
-Currently, Cigar listens on the following addresses and ports (by default):
-* *:88 - for the master server
-* *:150x - for the game server
-* *:160x - for the stats server
-
-Please note that on some systems, you may have to run the process as root or otherwise elevate your privileges to allow the process to listen on the needed ports. **If you are getting an EADDRINUSE error, it means that the port required to run Cigar is being used. Usually, Skype is the culprit. To solve this, either close out skype, or change the serverPort value in gameserver.ini to a different port. You will have to change your connection ip to "127.0.0.1:PORT"**
-
-Once the gameserver is running, visit the client of your choice and join the server. If you used the MasterServer then you can simply go to 127.0.0.1:88.
+## Recommended Servers
+This client can be used with any server that is built with the same protocol and connect with it properly. However, the recommended server that we are building for and works best with Cigar to get all the features out of it with is [MultiOgar](https://github.com/Barbosik/MultiOgar).
 
 ## Configuring Cigar
-Use "gameserver1.ini" to modify Cigar's configurations field. Player bots are currently basic and for testing purposes. To use them, change "serverBots" to a value higher than zero in the configuration file. To add/remove bot names, edit the file named "botnames.txt" which is in the same folder as "gameserver.ini". Names should be separated by using the enter key.
+### Adding More Server Dropdowns
+The connection method on Cigar works through the function of 
 
-## Custom Game modes
-Cigar has support for custom game modes. To switch between game modes, change the value of "serverGamemode" in the configurations file to the selected game mode id and restart the server. Please check [GAMEMODES.md](https://github.com/CigarProject/Cigar/blob/master/doc/GAMEMODES.md) for the list of gamemodes.
+```javascript
+setserver("IP:PORT"); 
+```
 
-## Console Commands
-Command names are not case sensitive, but the gameserver.ini variables are. This is a list of every thing you can type into the console upon opening Cigar. All commands can be found at [COMMANDS.md](https://github.com/CigarProject/Cigar/blob/master/doc/COMMANDS.md)
+To add another server, you can call any element that has the main_out.js called to run the function and the server will change within the canvas. To add another dropdown that will switch to your server, add the following line inside of the existing dropdown box.
+
+```html
+<option value="IP:PORT">NAME</option>
+```
+
+Replace IP:PORT with the ones that are corresponding with your server, you can also change the NAME to anything you like.
+
+### Changing Skins Folder
+The skins folder can be changed to any folder that is located on your web server. If you wish to move the skins folder onto another domain, please do note that the checkdir.php file might stop working and that will break skins from showing up in game. To change the skin folder on the set webserver, you will need to update 2 files. Open /assets/js/main_out.js and edit the following line:
+
+```javascript
+SKIN_URL = "./skins/"; // Skin Directory
+```
+
+Update the ./skins/ to the directory that the skins folder is located in. You can also back out into directories out of where the game.js is being called from by using /../ for each directory.
+
+You also need to update one line inside of the checkdir.php file:
+
+```php
+$images = glob('./skins/*.{png}', GLOB_BRACE);
+```
+
+Update the part where it says ./skins/, however make sure not remove *.{png} because without that the skins will not load anymore. (Also, make sure all the skin files are .png!)
+
+## Support
+You can get support from the community and developers by adding issues or suggestions in the issues tab at this repository. However please do note, **if you remove the backlink to Cigar on your project, we will NOT provide support for your website.**
 
 ## Contributing
-Please see [CONTRIBUTING.md](https://github.com/CigarProject/Cigar/blob/master/doc/CONTRIBUTING.md) for contribution guidelines.
+Please see [CONTRIBUTING.md](https://github.com/CigarProject/Cigar/blob/master/CONTRIBUTING.md) for contribution guidelines.
 
 ## License
-Please see [LICENSE.md](https://github.com/CigarProject/Cigar/blob/master/doc/LICENSE.md).
+Please see [LICENSE.md](https://github.com/CigarProject/Cigar/blob/master/LICENSE.md).
