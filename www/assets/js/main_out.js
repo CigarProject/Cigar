@@ -480,8 +480,10 @@
     }
 
     function drawChatBoard() {
-        //chatCanvas = null;
-        if (hideChat) return;
+        if (hideChat)  {
+            chatCanvas = null;
+            return;
+        }
         chatCanvas = document.createElement("canvas");
         var ctx = chatCanvas.getContext("2d");
         var scaleFactor = Math.min(Math.max(canvasWidth / 1200, 0.75), 1); //scale factor = 0.75 to 1
