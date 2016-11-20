@@ -49,24 +49,23 @@
     <div class="container">
         <div class="row">
             <ul>
-	          <?php
-		        $dirname = "skins/";
-		        $images = scandir($dirname);
-	        	shuffle($images);
-        		$ignore = array(".", "..");
-        		foreach($images as $curimg){
-	              if (!in_array($curimg, $ignore) && strtolower(pathinfo($curimg, PATHINFO_EXTENSION)) == "png") {
-	                  ?>
-                    <li>
-                        <div class="circular" style='background-image: url("/<?php echo $dirname.$curimg ?>")'></div>
-                    </li>
-			        	    <?php
-		        	  }
-            } 				
+            <?php
+            $dirname = "skins/";
+            $images = scandir($dirname);
+            shuffle($images);
+            $ignore = array(".", "..");
+            foreach($images as $curimg){
+                if (!in_array($curimg, $ignore) && strtolower(pathinfo($curimg, PATHINFO_EXTENSION)) == "png") {
+              ?>
+                <li>
+                    <div class="circular" style='background-image: url("/<?php echo $dirname.$curimg ?>")'></div>
+                </li>
+            <?php
+                }
+            }                 
             ?>
             </ul>
         </div>
     </div>
 </body>
 </html>
-
