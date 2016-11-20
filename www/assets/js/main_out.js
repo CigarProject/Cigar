@@ -1312,7 +1312,7 @@
                     }
                 }
 
-                if (showSkin && ':teams' != gameMode && skinName != '') {
+                if (showSkin && ':teams' != gameMode && skinName != '' && -1 != knownNameDict.indexOf(skinName)) {
                     if (!skins.hasOwnProperty(skinName)) {
                         skins[skinName] = new Image;
                         skins[skinName].src = SKIN_URL + skinName + '.png';
