@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-0.01-blue.svg) ![Language](https://img.shields.io/badge/protocol-5-orange.svg)
+![Protocol](https://img.shields.io/badge/protocol-5-orange.svg)
 
 # Cigar
 An unofficial Agar.io client used to run with Ogar based servers. Allows you to connect to an Ogar based server and have the abilities of the new protocol in a smaller and cleaner client.

@@ -42,7 +42,7 @@
 
                 <div class="form-group">
                     <div class="mb-10">
-                        <a href="gallery" class="btn-primary btn btn-info" role="button" style="width: 100%;">Skins Gallery</a>
+                        <a href="skins" class="btn-primary btn btn-info" role="button" style="width: 100%;">Skins Gallery</a>
                     </div>
 
                     <button type="submit" id="play-btn" onclick="setNick(document.getElementById('nick').value); return false;" class="btn btn-play btn-primary btn-needs-server">Play</button>
@@ -69,6 +69,8 @@
                             <input type="checkbox" onchange="setShowMass($(this).is(':checked'));"> Show mass</label>
                         <label>
                             <input type="checkbox" onchange="setSmooth($(this).is(':checked'));"> Smooth Render</label>
+                        <label>
+                            <input type="checkbox" onchange="setChatHide($(this).is(':checked'));"> Hide Chat</label>
                     </div>
                 </div>
             </form>
@@ -76,11 +78,11 @@
             <div id="instructions">
                 <hr/>
                 <center>
-                	<span class="text-muted">
-						Move your mouse to control your cell<br/>
-						Press <b>Space</b> to split<br/>
-						Press <b>W</b> to eject some mass<br/>
-					</span>
+                    <span class="text-muted">
+                        Move your mouse to control your cell<br/>
+                        Press <b>Space</b> to split<br/>
+                        Press <b>W</b> to eject some mass<br/>
+                    </span>
                 </center>
             </div>
 
@@ -100,7 +102,7 @@
     </div>
 
     <canvas id="canvas" width="800" height="600"></canvas>
-    <input type="text" id="chat_textbox" maxlength="200" />
+    <input type="text" id="chat_textbox" placeholder="Press enter to chat!" maxlength="200" />
     <div style="font-family:'Ubuntu'">&nbsp;</div>
 </body>
 </html>

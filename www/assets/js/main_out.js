@@ -143,7 +143,6 @@
     function onTouchStart(e) {
         for (var i = 0; i < e.changedTouches.length; i++) {
             var touch = e.changedTouches[i];
-            //console.log(leftTouchID + " "
             if ((leftTouchID < 0) && (touch.clientX < canvasWidth / 2)) {
                 leftTouchID = touch.identifier;
                 leftTouchStartPos.reset(touch.clientX, touch.clientY);
@@ -254,18 +253,12 @@
         hasOverlay = true;
         userNickName = null;
         wjQuery("#overlays").fadeIn(arg ? 200 : 3E3);
-        arg || wjQuery("#adsBottom").fadeIn(3E3)
-    }
-
-    function attemptConnection() {
-        console.log("Find " + gameMode);
-        wsConnect((useHttps ? "wss://" : "ws://") + CONNECTION_URL)
     }
 
     function showConnecting() {
         if (ma) {
             wjQuery("#connecting").show();
-            attemptConnection()
+            wsConnect((useHttps ? "wss://" : "ws://") + CONNECTION_URL)
         }
     }
 
@@ -295,9 +288,6 @@
         ws.onopen = onWsOpen;
         ws.onmessage = onWsMessage;
         ws.onclose = onWsClose;
-        ws.onerror = function() {
-            console.log("socket error");
-        }
     }
 
     function prepareData(a) {
@@ -312,7 +302,6 @@
         var msg;
         delay = 500;
         wjQuery("#connecting").hide();
-        console.log("socket open");
         msg = prepareData(5);
         msg.setUint8(0, 254);
         msg.setUint32(1, 5, true); // Protcol 5
@@ -325,7 +314,6 @@
     }
 
     function onWsClose() {
-        console.log("socket close");
         setTimeout(showConnecting, delay);
         delay *= 1.5
     }
@@ -474,9 +462,7 @@
             "message": getString(),
             "time": Date.now()
         });
-        //console.log(chatBoard);
         drawChatBoard();
-        //drawChatBoardLine();
     }
 
     function drawChatBoard() {
@@ -844,18 +830,18 @@
         ctx.scale(viewZoom, viewZoom);
         var a = canvasWidth / viewZoom,
             b = canvasHeight / viewZoom;
-        for (var c = -.5 + (-nodeX + a / 2) % 50; c < a; c += 50) {
-            ctx.beginPath();
-            ctx.moveTo(c, 0);
-            ctx.lineTo(c, b);
-            ctx.stroke();
-        }
-        for (c = -.5 + (-nodeY + b / 2) % 50; c < b; c += 50) {
-            ctx.beginPath();
-            ctx.moveTo(0, c);
-            ctx.lineTo(a, c);
-            ctx.stroke();
-        }
+        // for (var c = -.5 + (-nodeX + a / 2) % 50; c < a; c += 50) {
+        //     ctx.beginPath();
+        //     ctx.moveTo(c, 0);
+        //     ctx.lineTo(c, b);
+        //     ctx.stroke();
+        // }
+        // for (c = -.5 + (-nodeY + b / 2) % 50; c < b; c += 50) {
+        //     ctx.beginPath();
+        //     ctx.moveTo(0, c);
+        //     ctx.lineTo(a, c);
+        //     ctx.stroke();
+        // }
         ctx.restore()
     }
 
@@ -1009,8 +995,8 @@
         splitIcon = new Image,
         ejectIcon = new Image,
         noRanking = false;
-    splitIcon.src = "split.png";
-    ejectIcon.src = "feed.png";
+    splitIcon.src = "assets/img/split.png";
+    ejectIcon.src = "assets/img/feed.png";
     var wCanvas = document.createElement("canvas");
     var playerStat = null;
     wHandle.isSpectating = false;
@@ -1167,14 +1153,13 @@
             return Math.max(~~(.3 * this.size), 24)
         },
         setName: function(a) {
-            if (this.name = a) {
-                if (null == this.nameCache) {
-                    this.nameCache = new UText(this.getNameSize(), "#FFFFFF", true, "#000000");
-                    this.nameCache.setValue(this.name);
-                } else {
-                    this.nameCache.setSize(this.getNameSize());
-                    this.nameCache.setValue(this.name);
-                }
+            this.name = a;
+            if (null == this.nameCache) {
+                this.nameCache = new UText(this.getNameSize(), "#FFFFFF", true, "#000000");
+                this.nameCache.setValue(this.name);
+            } else {
+                this.nameCache.setSize(this.getNameSize());
+                this.nameCache.setValue(this.name);
             }
         },
         createPoints: function() {
