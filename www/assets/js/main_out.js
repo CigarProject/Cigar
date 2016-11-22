@@ -1271,7 +1271,7 @@
         drawOneCell: function(ctx) {
             if (this.shouldRender()) {
                 var b = (0 != this.id && !this.isVirus && !this.isAgitated && smoothRender > viewZoom);
-                if (5 > this.getNumPoints()) b = true;
+                if (10 > this.getNumPoints()) b = true;
                 if (this.wasSimpleDrawing && !b)
                     for (var c = 0; c < this.points.length; c++) this.points[c].size = this.size;
                 this.wasSimpleDrawing = b;
