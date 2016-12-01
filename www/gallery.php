@@ -43,28 +43,27 @@
         opacity: 1;
     }
     </style>
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <div class="row">
             <ul>
-            <?php
-            $dirname = "skins/";
-            $images = scandir($dirname);
-            shuffle($images);
-            $ignore = array(".", "..");
-            foreach($images as $curimg){
-                if (!in_array($curimg, $ignore) && strtolower(pathinfo($curimg, PATHINFO_EXTENSION)) == "png") {
-              ?>
-                <li>
+                <?php
+                    $dirname = "skins/";
+                    $images = scandir($dirname);
+                    $ignore = array(".", "..");
+                    foreach($images as $curimg) {
+                        if (!in_array($curimg, $ignore) && strtolower(pathinfo($curimg, PATHINFO_EXTENSION)) == "png") {
+                ?>
+                <li>
                     <div class="circular" style='background-image: url("/<?php echo $dirname.$curimg ?>")'></div>
                     <h4 style="text-align: center"><?php echo $curimg ?></h4>
-                </li>
-            <?php
-                }
-            }                 
-            ?>
+                </li>
+                <?php
+                        }
+                    }                 
+                ?>
             </ul>
         </div>
     </div>
