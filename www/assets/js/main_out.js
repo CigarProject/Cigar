@@ -1,3 +1,5 @@
+
+
 (function(wHandle, wjQuery) {
     var CONNECTION_URL = "EMPTY", // Default Connection
         SKIN_URL = "./skins/"; // Skin Directory
@@ -63,41 +65,70 @@
 
         var spacePressed = false,
             qPressed = false,
+            ePressed = false,
+            rPressed = false,
+            tPressed = false,
             wPressed = false;
-        wHandle.onkeydown = function(event) {
+        wHandle.onkeydown = function (event) {
             switch (event.keyCode) {
                 case 32: // split
                     if ((!spacePressed) && (!isTyping)) {
                         sendMouseMove();
                         sendUint8(17);
-                        spacePressed = true;
+                        if (!sMacro) spacePressed = true;
                     }
                     break;
                 case 81: // key q pressed
                     if ((!qPressed) && (!isTyping)) {
                         sendUint8(18);
-                        qPressed = true;
+                        if (!qMacro) qPressed = true;
                     }
                     break;
                 case 87: // eject mass
                     if ((!wPressed) && (!isTyping)) {
                         sendMouseMove();
                         sendUint8(21);
-                        wPressed = true;
+                        if (!wMacro) wPressed = true;
                     }
                     break;
+                case 69: // e key
+                     if (!ePressed && (!isTyping)) {
+                         sendMouseMove();
+                         sendUint8(22);
+                       console.log("E pressed")
+                     }
+                     break;
+                case 82: // r key
+                     if (!rPressed && (!isTyping)) {
+                         sendMouseMove();
+                         sendUint8(23);
+                         if (!rMacro) rPressed = true;
+                       console.log("R pressed")
+                     }
+                     break;
+                case 84: // T key
+                     if (!rPressed && (!isTyping)) {
+                         sendMouseMove();
+                         sendUint8(24);
+                         tPressed = true;
+                       console.log("T pressed")
+                     }
+                     break;
                 case 27: // quit
                     showOverlays(true);
+                    wHandle.isSpectating = false;
                     break;
 
                 case 13:
-                    if (isTyping || hideChat) {
+                    if (isTyping) {
                         isTyping = false;
                         document.getElementById("chat_textbox").blur();
                         chattxt = document.getElementById("chat_textbox").value;
                         if (chattxt.length > 0) sendChat(chattxt);
                         document.getElementById("chat_textbox").value = "";
-                    } else {
+
+                    }
+                    else {
                         if (!hasOverlay) {
                             document.getElementById("chat_textbox").focus();
                             isTyping = true;
@@ -105,7 +136,7 @@
                     }
             }
         };
-        wHandle.onkeyup = function(event) {
+        wHandle.onkeyup = function (event) {
             switch (event.keyCode) {
                 case 32:
                     spacePressed = false;
@@ -113,6 +144,15 @@
                 case 87:
                     wPressed = false;
                     break;
+                case 69:
+                     ePressed = false;
+                     break;
+                 case 82:
+                     rPressed = false;
+                     break;
+                 case 84:
+                     tPressed = false;
+                     break;
                 case 81:
                     if (qPressed) {
                         sendUint8(19);
@@ -121,7 +161,7 @@
                     break;
             }
         };
-        wHandle.onblur = function() {
+        wHandle.onblur = function () {
             sendUint8(19);
             wPressed = qPressed = spacePressed = false
         };
@@ -1592,3 +1632,4 @@
     });
     wHandle.onload = gameLoop
 })(window, window.jQuery);
+
