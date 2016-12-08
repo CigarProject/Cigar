@@ -42,6 +42,10 @@
         visibility: visible;
         opacity: 1;
     }
+    body {
+        padding-top: 20px;
+        padding-bottom: 20px;
+    }
     </style>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
 </head>
