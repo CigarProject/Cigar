@@ -2,14 +2,13 @@
     width: 64%;
     float: right;
 }
-
-li {
-     list-style-type: none;
-     margin-right: 10px;
-     margin-bottom: 10px;
-     float: left;
+.skin {
+    list-style-type: none;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    float: left;
+    max-width: 150px;
 }
-
 .circular {
     width: 150px;
     height: 150px;
@@ -21,8 +20,30 @@ li {
     -webkit-box-shadow: 0 0 8px rgba(0, 0, 0, .8);
     -moz-box-shadow: 0 0 8px rgba(0, 0, 0, .8);
     background-size: 150px 150px;
+    cursor: pointer;
 }
-
+.circular:hover {
+    box-shadow: 0 0 12px rgba(0, 0, 0, .8);
+    -webkit-box-shadow: 0 0 12px rgba(0, 0, 0, .8);
+    -moz-box-shadow: 0 0 12px rgba(0, 0, 0, .8);
+    -webkit-transition: all 0.2s linear;
+    -o-transition: all 0.2s linear;
+    -moz-transition: all 0.2s linear;
+    -ms-transition: all 0.2s linear;
+    transition: all 0.2s linear;
+}
+.skin > .title {
+    cursor: pointer;
+    text-align: center;
+}
+.skin > .title:hover {
+    text-shadow: 0 0 2px rgba(0, 0, 0, .8);
+    -webkit-transition: all 0.2s linear;
+    -o-transition: all 0.2s linear;
+    -moz-transition: all 0.2s linear;
+    -ms-transition: all 0.2s linear;
+    transition: all 0.2s linear;
+}
 .imgDescription {
     text-align: center;
     position: relative;
@@ -36,13 +57,7 @@ li {
     opacity: 0;
     -webkit-transition: visibility opacity 0.2s;
 }
-
 .circular:hover .imgDescription {
     visibility: visible;
     opacity: 1;
-}
-
-body {
-    padding-top: 20px;
-    padding-bottom: 20px;
 }

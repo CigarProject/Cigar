@@ -20,10 +20,29 @@
 
     <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
     <script src="assets/js/vector.js"></script>
-    <script src="assets/js/main_out.js"></script>
+    <script src="assets/js/main_out.js"></script> 
 </head>
 
 <body>
+    <div class="modal fade" id="inPageModal" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 id="inPageModalTitle" class="modal-title">Loading</h4>
+                </div>
+                <div id="inPageModalBody" class="modal-body">
+                    <p>Loading content...</p>
+                    <div class="center">
+                        <div class="loader"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="overlays">
         <div id="helloDialog">
             <form role="form">
@@ -42,7 +61,7 @@
 
                 <div class="form-group">
                     <div class="mb-10">
-                        <a href="gallery.php" class="btn-primary btn btn-info" role="button" style="width: 100%;">Skins Gallery</a>
+                        <a data-toggle="modal" data-target="#inPageModal" onclick="openSkinsList();" class="btn-primary btn btn-info" role="button" style="width: 100%;">Skins Gallery</a>
                     </div>
 
                     <button type="submit" id="play-btn" onclick="setNick(document.getElementById('nick').value); return false;" class="btn btn-play btn-primary btn-needs-server">Play</button>
@@ -104,5 +123,7 @@
     <canvas id="canvas" width="800" height="600"></canvas>
     <input type="text" id="chat_textbox" placeholder="Press enter to chat!" maxlength="200" />
     <div style="font-family:'Ubuntu'">&nbsp;</div>
+    <!-- After-load content -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script> 
 </body>
 </html>

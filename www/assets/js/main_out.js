@@ -1047,6 +1047,14 @@
     wHandle.setAcid = function(arg) {
         xa = arg
     };
+    wHandle.openSkinsList = function(arg) {
+        if ($('#inPageModalTitle').text() != "Skins") {
+            $.get('gallery.php').then(function(data) {
+                $('#inPageModalTitle').text("Skins");
+                $('#inPageModalBody').html(data);
+            });
+        }
+    };
     if (null != wHandle.localStorage) {
         if (null == wHandle.localStorage.AB8) {
             wHandle.localStorage.AB8 = ~~(100 * Math.random());
