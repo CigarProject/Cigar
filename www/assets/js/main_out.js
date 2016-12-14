@@ -830,18 +830,17 @@
         ctx.scale(viewZoom, viewZoom);
         var a = canvasWidth / viewZoom,
             b = canvasHeight / viewZoom;
-        // for (var c = -.5 + (-nodeX + a / 2) % 50; c < a; c += 50) {
-        //     ctx.beginPath();
-        //     ctx.moveTo(c, 0);
-        //     ctx.lineTo(c, b);
-        //     ctx.stroke();
-        // }
-        // for (c = -.5 + (-nodeY + b / 2) % 50; c < b; c += 50) {
-        //     ctx.beginPath();
-        //     ctx.moveTo(0, c);
-        //     ctx.lineTo(a, c);
-        //     ctx.stroke();
-        // }
+        for (var c = -.5 + (-nodeX + a / 2) % 50; c < a; c += 50) {
+            ctx.moveTo(c, 0);
+            ctx.lineTo(c, b);
+        }
+        ctx.stroke();
+        ctx.beginPath();
+        for (c = -.5 + (-nodeY + b / 2) % 50; c < b; c += 50) {
+            ctx.moveTo(0, c);
+            ctx.lineTo(a, c);
+        }
+        ctx.stroke()
         ctx.restore()
     }
 
