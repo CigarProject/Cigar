@@ -898,7 +898,7 @@
                         if (me) playerCells[0].name && (c = playerCells[0].name);
                         me ? ctx.fillStyle = "#FFAAAA" : ctx.fillStyle = "#FFFFFF";
                         if (!noRanking) c = b + 1 + ". " + c;
-                        var start = (ctx.measureText(c).width > 200) ? 2 : 100 - ctx.measureText(c).width * 0.5;
+                        var start = (ctx.measureText(c).width > 200) ? 8 : 100 - ctx.measureText(c).width * 0.5;
                         ctx.fillText(c, start, 70 + 24 * b);
                     }
                 } else {
@@ -1468,18 +1468,18 @@
                     font = fontsize + 'px Ubuntu';
                 ctx.font = font;
                 var h = ~~(.2 * fontsize),
-                    wd = fontsize * 0.12;
-                canvas.width = (ctx.measureText(value).width +
-                    wd) * scale;
+                    wd = fontsize * 0.1;
+                var h2 = h * 0.5;
+                canvas.width = ctx.measureText(value).width * scale + 3;
                 canvas.height = (fontsize + h) * scale;
                 ctx.font = font;
-                ctx.scale(scale, scale);
                 ctx.globalAlpha = 1;
                 ctx.lineWidth = wd;
                 ctx.strokeStyle = this._strokeColor;
                 ctx.fillStyle = this._color;
-                this._stroke && ctx.strokeText(value, 3, fontsize - h * 0.5);
-                ctx.fillText(value, 3, fontsize - h * 0.5)
+                ctx.scale(scale, scale);
+                this._stroke && ctx.strokeText(value, 0, fontsize - h2);
+                ctx.fillText(value, 0, fontsize - h2);
             }
             return this._canvas
         },
