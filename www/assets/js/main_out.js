@@ -1055,6 +1055,23 @@
         }
     };
     if (null != wHandle.localStorage) {
+        wjQuery(window).load(function() {
+            wjQuery(".save").each(function() {
+                var id = $(this).data("box-id");
+                var value = wHandle.localStorage.getItem("checkbox-" + id);
+                if (value && value == "true" && 0 != id) {
+                    $(this).prop("checked", "true");
+                    $(this).trigger("change");
+                } else if (id == 0 && value != null) {
+                    $(this).val(value);
+                }
+            });
+            wjQuery(".save").change(function() {
+                var id = $(this).data('box-id');
+                var value = (id == 0) ? $(this).val() : $(this).prop('checked'); 
+                wHandle.localStorage.setItem("checkbox-" + id, value);
+            });
+        });
         if (null == wHandle.localStorage.AB8) {
             wHandle.localStorage.AB8 = ~~(100 * Math.random());
         }

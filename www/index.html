@@ -51,7 +51,7 @@
                 </div>
 
                 <div class="form-group">
-                    <input id="nick" class="form-control" placeholder="Nick" maxlength="15" />
+                    <input id="nick" class="form-control save" data-box-id="0" placeholder="Nick" maxlength="15" />
                     <select id="gamemode" class="form-control" onchange="setserver($(this).val());" required>
                         <option selected disabled>Gamemode:</option>
                         <option value="127.0.0.1:443">FFA</option>
@@ -77,19 +77,19 @@
                     </div>
                     <div style="margin: 6px;">
                         <label>
-                            <input type="checkbox" onchange="setSkins(!$(this).is(':checked'));"> No skins</label>
+                            <input type="checkbox" class="save" data-box-id="1" onchange="setSkins(!$(this).is(':checked'));"> No skins</label>
                         <label>
-                            <input type="checkbox" onchange="setNames(!$(this).is(':checked'));"> No names</label>
+                            <input type="checkbox" class="save" data-box-id="2" onchange="setNames(!$(this).is(':checked'));"> No names</label>
                         <label>
-                            <input type="checkbox" onchange="setDarkTheme($(this).is(':checked'));"> Dark Theme</label>
+                            <input type="checkbox" class="save" data-box-id="3" onchange="setDarkTheme($(this).is(':checked'));"> Dark Theme</label>
                         <label>
-                            <input type="checkbox" onchange="setColors($(this).is(':checked'));"> No colors</label>
+                            <input type="checkbox" class="save" data-box-id="4" onchange="setColors($(this).is(':checked'));"> No colors</label>
                         <label>
-                            <input type="checkbox" onchange="setShowMass($(this).is(':checked'));"> Show mass</label>
+                            <input type="checkbox" class="save" data-box-id="5" onchange="setShowMass($(this).is(':checked'));"> Show mass</label>
                         <label>
-                            <input type="checkbox" onchange="setSmooth($(this).is(':checked'));"> Smooth Render</label>
+                            <input type="checkbox" class="save" data-box-id="6" onchange="setSmooth($(this).is(':checked'));"> Smooth Render</label>
                         <label>
-                            <input type="checkbox" onchange="setChatHide($(this).is(':checked'));"> Hide Chat</label>
+                            <input type="checkbox" class="save" data-box-id="7" onchange="setChatHide($(this).is(':checked'));"> Hide Chat</label>
                     </div>
                 </div>
             </form>
@@ -124,6 +124,6 @@
     <input type="text" id="chat_textbox" placeholder="Press enter to chat!" maxlength="200" />
     <div style="font-family:'Ubuntu'">&nbsp;</div>
     <!-- After-load content -->
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script> 
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
 </body>
 </html>
