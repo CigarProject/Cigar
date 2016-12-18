@@ -896,13 +896,15 @@
                             if (!noRanking) {
                                 c = b + 1 + ". " + c;
                             }
-                            ctx.fillText(c, 100 - ctx.measureText(c).width / 2, 70 + 24 * b);
+                            var start = (ctx.measureText(c).width > 200) ? 2 : 100 - ctx.measureText(c).width / 2;
+                            ctx.fillText(c, start / 2, 70 + 24 * b);
                         } else {
                             ctx.fillStyle = "#FFFFFF";
                             if (!noRanking) {
                                 c = b + 1 + ". " + c;
                             }
-                            ctx.fillText(c, 100 - ctx.measureText(c).width / 2, 70 + 24 * b);
+                            var start = (ctx.measureText(c).width > 200) ? 2 : 100 - ctx.measureText(c).width / 2;
+                            ctx.fillText(c, start, 70 + 24 * b);
                         }
                     }
                 } else {
