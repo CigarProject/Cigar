@@ -18,7 +18,7 @@
         leftTouchPos = new Vector2(0, 0),
         leftTouchStartPos = new Vector2(0, 0),
         leftVector = new Vector2(0, 0);
-    
+
     var useHttps = "https:" == wHandle.location.protocol;
 
     function gameLoop() {
@@ -308,7 +308,7 @@
         wsSend(msg);
         msg = prepareData(5);
         msg.setUint8(0, 255);
-        msg.setUint32(1, 1332175218, true);
+        msg.setUint32(1, 0, true);
         wsSend(msg);
         sendNickName();
     }
@@ -543,6 +543,7 @@
             var colorstr = "#" + color,
                 flags = view.getUint8(offset++),
                 flagVirus = !!(flags & 1),
+                flagEjected = !!(flags & 32),
                 flagAgitated = !!(flags & 16),
                 _skin = "";
 
@@ -580,10 +581,11 @@
                 node.la = posY;
             }
             node.isVirus = flagVirus;
+            node.isEjected = flagEjected;
             node.isAgitated = flagAgitated;
             node.nx = posX;
             node.ny = posY;
-            node.nSize = size;
+            node.setSize(size);
             node.updateCode = code;
             node.updateTime = timestamp;
             node.flag = flags;
@@ -632,6 +634,7 @@
             msg.setUint8(0, 0);
             for (var i = 0; i < userNickName.length; ++i) msg.setUint16(1 + 2 * i, userNickName.charCodeAt(i), true);
             wsSend(msg)
+			console.log("Sent name")
         }
     }
 
@@ -687,7 +690,7 @@
         if (0 != playerCells.length) {
             for (var newViewZoom = 0, i = 0; i < playerCells.length; i++) newViewZoom += playerCells[i].size;
             newViewZoom = Math.pow(Math.min(64 / newViewZoom, 1), .4) * viewRange();
-            viewZoom = (9 * viewZoom + newViewZoom) / 10
+            viewZoom = (9 * viewZoom + newViewZoom) / 10;
         }
     }
 
@@ -732,7 +735,7 @@
             drawGrid();
         }
         nodelist.sort(function(a, b) {
-            return a.size == b.size ? a.id - b.id : a.size - b.size
+            return a.size === b.size ? a.id - b.id : a.size - b.size
         });
         ctx.save();
         ctx.translate(canvasWidth / 2, canvasHeight / 2);
@@ -863,13 +866,14 @@
 
     function drawLeaderBoard() {
         lbCanvas = null;
-        if (null != teamScores || 0 != leaderBoard.length)
-            if (null != teamScores || showName) {
+        var drawTeam = null != teamScores;
+        if (drawTeam || 0 != leaderBoard.length)
+            if (drawTeam || showName) {
                 lbCanvas = document.createElement("canvas");
                 var ctx = lbCanvas.getContext("2d"),
                     boardLength = 60;
-                boardLength = null == teamScores ? boardLength + 24 * leaderBoard.length : boardLength + 180;
-                var scaleFactor = Math.min(0.22 * canvasHeight, Math.min(200, .3 * canvasWidth)) / 200;
+                boardLength = !drawTeam ? boardLength + 24 * leaderBoard.length : boardLength + 180;
+                var scaleFactor = Math.min(0.22 * canvasHeight, Math.min(200, .3 * canvasWidth)) * 0.005;
                 lbCanvas.width = 200 * scaleFactor;
                 lbCanvas.height = boardLength * scaleFactor;
 
@@ -882,30 +886,20 @@
                 ctx.fillStyle = "#FFFFFF";
                 var c = "Leaderboard";
                 ctx.font = "30px Ubuntu";
-                ctx.fillText(c, 100 - ctx.measureText(c).width / 2, 40);
-                var b;
-                if (null == teamScores) {
-                    for (ctx.font = "20px Ubuntu", b = 0; b < leaderBoard.length; ++b) {
+                ctx.fillText(c, 100 - ctx.measureText(c).width * 0.5, 40);
+                var b, l;
+                if (!drawTeam) {
+                    for (ctx.font = "20px Ubuntu", b = 0, l = leaderBoard.length; b < l; ++b) {
                         c = leaderBoard[b].name || "An unnamed cell";
                         if (!showName) {
                             (c = "An unnamed cell");
                         }
-                        if (-1 != nodesOnScreen.indexOf(leaderBoard[b].id)) {
-                            playerCells[0].name && (c = playerCells[0].name);
-                            ctx.fillStyle = "#FFAAAA";
-                            if (!noRanking) {
-                                c = b + 1 + ". " + c;
-                            }
-                            var start = (ctx.measureText(c).width > 200) ? 2 : 100 - ctx.measureText(c).width / 2;
-                            ctx.fillText(c, start / 2, 70 + 24 * b);
-                        } else {
-                            ctx.fillStyle = "#FFFFFF";
-                            if (!noRanking) {
-                                c = b + 1 + ". " + c;
-                            }
-                            var start = (ctx.measureText(c).width > 200) ? 2 : 100 - ctx.measureText(c).width / 2;
-                            ctx.fillText(c, start, 70 + 24 * b);
-                        }
+                        var me = -1 != nodesOnScreen.indexOf(leaderBoard[b].id);
+                        if (me) playerCells[0].name && (c = playerCells[0].name);
+                        me ? ctx.fillStyle = "#FFAAAA" : ctx.fillStyle = "#FFFFFF";
+                        if (!noRanking) c = b + 1 + ". " + c;
+                        var start = (ctx.measureText(c).width > 200) ? 2 : 100 - ctx.measureText(c).width * 0.5;
+                        ctx.fillText(c, start, 70 + 24 * b);
                     }
                 } else {
                     for (b = c = 0; b < teamScores.length; ++b) {
@@ -1070,15 +1064,13 @@
             });
             wjQuery(".save").change(function() {
                 var id = $(this).data('box-id');
-                var value = (id == 0) ? $(this).val() : $(this).prop('checked'); 
+                var value = (id == 0) ? $(this).val() : $(this).prop('checked');
                 wHandle.localStorage.setItem("checkbox-" + id, value);
             });
         });
         if (null == wHandle.localStorage.AB8) {
             wHandle.localStorage.AB8 = ~~(100 * Math.random());
         }
-        Ra = +wHandle.localStorage.AB8;
-        wHandle.ABGroup = Ra;
     }
 
     setTimeout(function() {}, 3E5);
@@ -1114,6 +1106,7 @@
                 response = JSON.parse(data["names"]);
             }
         });
+        if (!response) return;
         for (var i = 0; i < response.length; i++) {
             if (-1 == knownNameDict.indexOf(response[i])) {
                 knownNameDict.push(response[i]);
@@ -1153,12 +1146,13 @@
         drawTime: 0,
         destroyed: false,
         isVirus: false,
+        isEjected: false,
         isAgitated: false,
         wasSimpleDrawing: true,
         destroy: function() {
             var tmp;
-            for (tmp = 0; tmp < nodelist.length; tmp++)
-                if (nodelist[tmp] == this) {
+            for (tmp = 0, len = nodelist.length; tmp < len; tmp++)
+                if (nodelist[tmp] === this) {
                     nodelist.splice(tmp, 1);
                     break
                 }
@@ -1169,9 +1163,7 @@
                 playerCells.splice(tmp, 1);
             }
             tmp = nodesOnScreen.indexOf(this.id);
-            if (-1 != tmp) {
-                nodesOnScreen.splice(tmp, 1);
-            }
+            if (-1 != tmp) nodesOnScreen.splice(tmp, 1);
             this.destroyed = true;
             Cells.push(this)
         },
@@ -1187,6 +1179,13 @@
                 this.nameCache.setSize(this.getNameSize());
                 this.nameCache.setValue(this.name);
             }
+        },
+        setSize: function(a) {
+            this.nSize = a;
+            var m = ~~(this.size * this.size * 0.01);
+            if (null === this.sizeCache)
+                this.sizeCache = new UText(this.getNameSize() * 0.5, "#FFFFFF", true, "#000000");
+            else this.sizeCache.setSize(this.getNameSize() * 0.5);
         },
         createPoints: function() {
             for (var samplenum = this.getNumPoints(); this.points.length > samplenum;) {
@@ -1294,6 +1293,15 @@
                 return !(this.x + this.size + 40 < nodeX - canvasWidth / 2 / viewZoom || this.y + this.size + 40 < nodeY - canvasHeight / 2 / viewZoom || this.x - this.size - 40 > nodeX + canvasWidth / 2 / viewZoom || this.y - this.size - 40 > nodeY + canvasHeight / 2 / viewZoom);
             }
         },
+        getStrokeColor: function() {
+            var r = (~~(parseInt(this.color.substr(1, 2), 16) * 0.9)).toString(16),
+                g = (~~(parseInt(this.color.substr(3, 2), 16) * 0.9)).toString(16),
+                b = (~~(parseInt(this.color.substr(5, 2), 16) * 0.9)).toString(16);
+            if (r.length == 1) r = "0" + r;
+            if (g.length == 1) g = "0" + g;
+            if (b.length == 1) b = "0" + b;
+            return "#" + r + g + b;
+        },
         drawOneCell: function(ctx) {
             if (this.shouldRender()) {
                 var b = (0 != this.id && !this.isVirus && !this.isAgitated && smoothRender > viewZoom);
@@ -1313,14 +1321,17 @@
                     ctx.strokeStyle = "#AAAAAA";
                 } else {
                     ctx.fillStyle = this.color;
-                    ctx.strokeStyle = this.color;
+                    if (b) ctx.strokeStyle = this.getStrokeColor();
+                    else ctx.strokeStyle = this.color;
                 }
+				ctx.beginPath();
                 if (b) {
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size, 0, 2 * Math.PI, false);
+                    var lw = this.size * 0.03;
+                    ctx.lineWidth = lw;
+                    ctx.arc(this.x, this.y, this.size - lw * 0.5 + 5, 0, 2 * Math.PI, false);
+                    ctx.stroke();
                 } else {
                     this.movePoints();
-                    ctx.beginPath();
                     var d = this.getNumPoints();
                     ctx.moveTo(this.points[0].x, this.points[0].y);
                     for (c = 1; c <= d; ++c) {
@@ -1374,37 +1385,37 @@
                 var ncache;
                 //draw name
                 if (0 != this.id) {
-                    var b = ~~this.y;
+                    var x = ~~this.x,
+                        y = ~~this.y,
+						nz = this.getNameSize(),
+                        ratio = Math.ceil(10 * viewZoom) * 0.1;
+                    var ratD = 1 / ratio;
                     if ((showName || c) && this.name && this.nameCache && (null == e || -1 == knownNameDict_noDisp.indexOf(skinName))) {
                         ncache = this.nameCache;
                         ncache.setValue(this.name);
-                        ncache.setSize(this.getNameSize());
-                        var ratio = Math.ceil(10 * viewZoom) / 10;
+                        ncache.setSize(nz);
                         ncache.setScale(ratio);
                         var rnchache = ncache.render(),
-                            m = ~~(rnchache.width / ratio),
-                            h = ~~(rnchache.height / ratio);
-                        ctx.drawImage(rnchache, ~~this.x - ~~(m / 2), b - ~~(h / 2), m, h);
-                        b += rnchache.height / 2 / ratio + 4
+                            m = ~~(rnchache.width * ratD),
+                            h = ~~(rnchache.height * ratD);
+                        ctx.drawImage(rnchache, x - ~~(m * 0.5), y - ~~(h * 0.5), m, h);
+                        b += rnchache.height * 0.5 * ratio + 4;
                     }
 
                     //draw mass
                     if (showMass && (c || 0 == playerCells.length && (!this.isVirus || this.isAgitated) && 20 < this.size)) {
-                        if (null == this.sizeCache) {
-                            this.sizeCache = new UText(this.getNameSize() / 2, "#FFFFFF", true, "#000000")
-                        }
+                        var m = ~~(this.size * this.size * 0.01);
                         c = this.sizeCache;
-                        c.setSize(this.getNameSize() / 2);
-                        c.setValue(~~(this.size * this.size / 100));
-                        ratio = Math.ceil(10 * viewZoom) / 10;
+                        c.setValue(m);
                         c.setScale(ratio);
                         e = c.render();
-                        m = ~~(e.width / ratio);
-                        h = ~~(e.height / ratio);
-                        ctx.drawImage(e, ~~this.x - ~~(m / 2), b - ~~(h / 2), m, h);
+                        m = ~~(e.width * ratD);
+                        h = ~~(e.height * ratD);
+                        var g = this.name ? y + ~~(h * 0.7) : y - ~~(h * 0.5);
+                        ctx.drawImage(e, x - ~~(m * 0.5), g, m, h);
                     }
                 }
-                ctx.restore()
+                ctx.restore();
             }
         }
     };
@@ -1456,18 +1467,19 @@
                     fontsize = this._size,
                     font = fontsize + 'px Ubuntu';
                 ctx.font = font;
-                var h = ~~(.2 * fontsize);
+                var h = ~~(.2 * fontsize),
+                    wd = fontsize * 0.12;
                 canvas.width = (ctx.measureText(value).width +
-                    6) * scale;
+                    wd) * scale;
                 canvas.height = (fontsize + h) * scale;
                 ctx.font = font;
                 ctx.scale(scale, scale);
                 ctx.globalAlpha = 1;
-                ctx.lineWidth = 3;
+                ctx.lineWidth = wd;
                 ctx.strokeStyle = this._strokeColor;
                 ctx.fillStyle = this._color;
-                this._stroke && ctx.strokeText(value, 3, fontsize - h / 2);
-                ctx.fillText(value, 3, fontsize - h / 2)
+                this._stroke && ctx.strokeText(value, 3, fontsize - h * 0.5);
+                ctx.fillText(value, 3, fontsize - h * 0.5)
             }
             return this._canvas
         },
