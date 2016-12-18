@@ -898,7 +898,7 @@
                         if (me) playerCells[0].name && (c = playerCells[0].name);
                         me ? ctx.fillStyle = "#FFAAAA" : ctx.fillStyle = "#FFFFFF";
                         if (!noRanking) c = b + 1 + ". " + c;
-                        var start = (ctx.measureText(c).width > 200) ? 8 : 100 - ctx.measureText(c).width * 0.5;
+                        var start = (ctx.measureText(c).width > 200) ? 2 : 100 - ctx.measureText(c).width * 0.5;
                         ctx.fillText(c, start, 70 + 24 * b);
                     }
                 } else {
