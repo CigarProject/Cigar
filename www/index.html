@@ -19,6 +19,7 @@
     <link href="assets/css/index.css" rel="stylesheet">
 
     <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="assets/js/log.js"></script>
     <script src="assets/js/vector.js"></script>
     <script src="assets/js/main_out.js"></script> 
 </head>
@@ -29,10 +30,10 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 id="inPageModalTitle" class="modal-title">Loading</h4>
+                    <h4 id="inPageModalTitle" class="modal-title">Failed to Load</h4>
                 </div>
                 <div id="inPageModalBody" class="modal-body">
-                    <p>Loading content...</p>
+                    <p>Failed to load. Please check your connection!</p>
                     <div class="center">
                         <div class="loader"></div>
                     </div>
@@ -123,7 +124,7 @@
     <canvas id="canvas" width="800" height="600"></canvas>
     <input type="text" id="chat_textbox" placeholder="Press enter to chat!" maxlength="200" />
     <div style="font-family:'Ubuntu'">&nbsp;</div>
-    <!-- After-load content -->
+
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
 </body>
 </html>

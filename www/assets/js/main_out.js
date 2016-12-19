@@ -3,9 +3,8 @@
         SKIN_URL = "./skins/"; // Skin Directory
 
     wHandle.setserver = function(arg) {
-        if (arg != gameMode) {
+        if (arg != CONNECTION_URL) {
             CONNECTION_URL = arg;
-            gameMode = arg;
             showConnecting();
         }
     };
@@ -66,31 +65,7 @@
             wPressed = false;
         wHandle.onkeydown = function(event) {
             switch (event.keyCode) {
-                case 32: // split
-                    if ((!spacePressed) && (!isTyping)) {
-                        sendMouseMove();
-                        sendUint8(17);
-                        spacePressed = true;
-                    }
-                    break;
-                case 81: // key q pressed
-                    if ((!qPressed) && (!isTyping)) {
-                        sendUint8(18);
-                        qPressed = true;
-                    }
-                    break;
-                case 87: // eject mass
-                    if ((!wPressed) && (!isTyping)) {
-                        sendMouseMove();
-                        sendUint8(21);
-                        wPressed = true;
-                    }
-                    break;
-                case 27: // quit
-                    showOverlays(true);
-                    break;
-
-                case 13:
+                case 13: // enter
                     if (isTyping || hideChat) {
                         isTyping = false;
                         document.getElementById("chat_textbox").blur();
@@ -103,17 +78,41 @@
                             isTyping = true;
                         }
                     }
+                    break;
+                case 32: // space
+                    if ((!spacePressed) && (!isTyping)) {
+                        sendMouseMove();
+                        sendUint8(17);
+                        spacePressed = true;
+                    }
+                    break;
+                case 81: // Q
+                    if ((!qPressed) && (!isTyping)) {
+                        sendUint8(18);
+                        qPressed = true;
+                    }
+                    break;
+                case 87: // W
+                    if ((!wPressed) && (!isTyping)) {
+                        sendMouseMove();
+                        sendUint8(21);
+                        wPressed = true;
+                    }
+                    break;
+                case 27: // esc
+                    showOverlays(true);
+                    break;
             }
         };
         wHandle.onkeyup = function(event) {
             switch (event.keyCode) {
-                case 32:
+                case 32: // space
                     spacePressed = false;
                     break;
-                case 87:
+                case 87: // W
                     wPressed = false;
                     break;
-                case 81:
+                case 81: // Q
                     if (qPressed) {
                         sendUint8(19);
                         qPressed = false;
@@ -135,7 +134,6 @@
         }
         setInterval(sendMouseMove, 40);
 
-        w = wHandle.localStorage.location;
         null == ws && showConnecting();
         wjQuery("#overlays").show();
     }
@@ -153,12 +151,12 @@
             var size = ~~(canvasWidth / 7);
             if ((touch.clientX > canvasWidth - size) && (touch.clientY > canvasHeight - size)) {
                 sendMouseMove();
-                sendUint8(17); //split
+                sendUint8(17); // split
             }
 
             if ((touch.clientX > canvasWidth - size) && (touch.clientY > canvasHeight - 2 * size - 10) && (touch.clientY < canvasHeight - size - 10)) {
                 sendMouseMove();
-                sendUint8(21); //eject
+                sendUint8(21); // eject
             }
         }
         touches = e.touches;
@@ -245,7 +243,6 @@
 
     function hideOverlays() {
         hasOverlay = false;
-        wjQuery("#adsBottom").hide();
         wjQuery("#overlays").hide();
     }
 
@@ -282,7 +279,7 @@
         leaderBoard = [];
         mainCanvas = teamScores = null;
         userScore = 0;
-        console.log("Connecting to " + wsUrl);
+        log.info("Connecting to " + wsUrl + "..");
         ws = new WebSocket(wsUrl);
         ws.binaryType = "arraybuffer";
         ws.onopen = onWsOpen;
@@ -304,22 +301,23 @@
         wjQuery("#connecting").hide();
         msg = prepareData(5);
         msg.setUint8(0, 254);
-        msg.setUint32(1, 5, true); // Protcol 5
+        msg.setUint32(1, 5, true); // Protocol 5
         wsSend(msg);
         msg = prepareData(5);
         msg.setUint8(0, 255);
         msg.setUint32(1, 0, true);
         wsSend(msg);
         sendNickName();
+        log.info("Connection successful!")
     }
 
     function onWsClose() {
         setTimeout(showConnecting, delay);
-        delay *= 1.5
+        delay *= 1.5;
     }
 
     function onWsMessage(msg) {
-        handleWsMessage(new DataView(msg.data))
+        handleWsMessage(new DataView(msg.data));
     }
 
     function handleWsMessage(msg) {
@@ -437,14 +435,16 @@
         }
 
         var flags = view.getUint8(offset++);
-        // for future expansions
-        if (flags & 2) {
+        
+        if (flags & 8) {
             offset += 4;
         }
+
         if (flags & 4) {
             offset += 8;
         }
-        if (flags & 8) {
+
+        if (flags & 2) {
             offset += 16;
         }
 
@@ -473,7 +473,7 @@
         chatCanvas = document.createElement("canvas");
         var ctx = chatCanvas.getContext("2d");
         var scaleFactor = Math.min(Math.max(canvasWidth / 1200, 0.75), 1); //scale factor = 0.75 to 1
-        chatCanvas.width = 1000 * scaleFactor;
+        chatCanvas.width = 1E3 * scaleFactor;
         chatCanvas.height = 550 * scaleFactor;
         ctx.scale(scaleFactor, scaleFactor);
         var nowtime = Date.now();
@@ -542,9 +542,9 @@
                     color = (r << 16 | g << 8 | b).toString(16); 6 > color.length;) color = "0" + color;
             var colorstr = "#" + color,
                 flags = view.getUint8(offset++),
-                flagVirus = !!(flags & 1),
-                flagEjected = !!(flags & 32),
-                flagAgitated = !!(flags & 16),
+                flagVirus = !!(flags & 0x01),
+                flagEjected = !!(flags & 0x20),
+                flagAgitated = !!(flags & 0x10),
                 _skin = "";
 
             flags & 2 && (offset += 4);
@@ -634,7 +634,6 @@
             msg.setUint8(0, 0);
             for (var i = 0; i < userNickName.length; ++i) msg.setUint16(1 + 2 * i, userNickName.charCodeAt(i), true);
             wsSend(msg)
-			console.log("Sent name")
         }
     }
 
@@ -650,7 +649,6 @@
             }
 
             wsSend(msg);
-            //console.log(msg);
         }
     }
 
@@ -744,7 +742,6 @@
         for (d = 0; d < Cells.length; d++) Cells[d].drawOneCell(ctx);
 
         for (d = 0; d < nodelist.length; d++) nodelist[d].drawOneCell(ctx);
-        //console.log(Cells.length);
         if (drawLine) {
             drawLineX = (3 * drawLineX + lineX) /
                 4;
@@ -973,7 +970,6 @@
         posX = nodeX = ~~((leftPos + rightPos) / 2),
         posY = nodeY = ~~((topPos + bottomPos) / 2),
         posSize = 1,
-        gameMode = "",
         teamScores = null,
         ma = false,
         hasOverlay = true,
@@ -1033,23 +1029,18 @@
         sendUint8(1);
         hideOverlays()
     };
-    wHandle.setGameMode = function(arg) {
-        if (arg != gameMode) {
-            gameMode = arg;
-            showConnecting();
-        }
-    };
     wHandle.setAcid = function(arg) {
         xa = arg
     };
     wHandle.openSkinsList = function(arg) {
         if ($('#inPageModalTitle').text() != "Skins") {
-            $.get('gallery.php').then(function(data) {
+            $.get('include/gallery.php').then(function(data) {
                 $('#inPageModalTitle').text("Skins");
                 $('#inPageModalBody').html(data);
             });
         }
     };
+
     if (null != wHandle.localStorage) {
         wjQuery(window).load(function() {
             wjQuery(".save").each(function() {
@@ -1096,23 +1087,6 @@
             }
         }
     });
-    var interval1Id = setInterval(function() {
-        wjQuery.ajax({
-            type: "POST",
-            dataType: "json",
-            url: "checkdir.php",
-            data: data,
-            success: function(data) {
-                response = JSON.parse(data["names"]);
-            }
-        });
-        if (!response) return;
-        for (var i = 0; i < response.length; i++) {
-            if (-1 == knownNameDict.indexOf(response[i])) {
-                knownNameDict.push(response[i]);
-            }
-        }
-    }, 60000);
 
     var delay = 500,
         oldX = -1,
@@ -1349,7 +1323,7 @@
                     }
                 }
 
-                if (showSkin && ':teams' != gameMode && skinName != '' && -1 != knownNameDict.indexOf(skinName)) {
+                if (showSkin && skinName != '' && -1 != knownNameDict.indexOf(skinName)) {
                     if (!skins.hasOwnProperty(skinName)) {
                         skins[skinName] = new Image;
                         skins[skinName].src = SKIN_URL + skinName + '.png';
@@ -1484,8 +1458,7 @@
             return this._canvas
         },
         getWidth: function() {
-            return (ctx.measureText(this._value).width +
-                6);
+            return (ctx.measureText(this._value).width + 6);
         }
     };
     Date.now || (Date.now = function() {
@@ -1625,7 +1598,10 @@
         favCanvas.height = 32;
         var ctx = favCanvas.getContext("2d");
         renderFavicon();
-        setInterval(renderFavicon, 1E3);
+
+        // Causes stuttering..
+        //setInterval(renderFavicon, 1E3);
+
         setInterval(drawChatBoard, 1E3);
     });
     wHandle.onload = gameLoop
