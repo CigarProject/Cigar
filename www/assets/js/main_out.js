@@ -62,6 +62,10 @@
 
         var spacePressed = false,
             qPressed = false,
+            ePressed = false,
+            rPressed = false,
+            tPressed = false,
+            pPressed = false,
             wPressed = false;
         wHandle.onkeydown = function(event) {
             switch (event.keyCode) {
@@ -86,17 +90,44 @@
                         spacePressed = true;
                     }
                     break;
+                case 87: // W
+                    if ((!wPressed) && (!isTyping)) {
+                        sendMouseMove();
+                        sendUint8(21);
+                        wPressed = true;
+                    }
+                    break;
                 case 81: // Q
                     if ((!qPressed) && (!isTyping)) {
                         sendUint8(18);
                         qPressed = true;
                     }
                     break;
-                case 87: // W
-                    if ((!wPressed) && (!isTyping)) {
+                case 69: // E
+                    if (!ePressed && (!isTyping)) {
                         sendMouseMove();
-                        sendUint8(21);
-                        wPressed = true;
+                        sendUint8(22);
+                    }
+                    break;
+                case 82: // R
+                    if (!rPressed && (!isTyping)) {
+                        sendMouseMove();
+                        sendUint8(23);
+                        if (!rMacro) rPressed = true;
+                    }
+                    break;
+                case 84: // T
+                    if (!tPressed && (!isTyping)) {
+                        sendMouseMove();
+                        sendUint8(24);
+                        tPressed = true;
+                    }
+                    break;
+                case 80: // P
+                    if (!pPressed && (!isTyping)) {
+                        sendMouseMove();
+                        sendUint8(25);
+                        pPressed = true;
                     }
                     break;
                 case 27: // esc
@@ -117,6 +148,18 @@
                         sendUint8(19);
                         qPressed = false;
                     }
+                    break;
+                case 69:
+                    ePressed = false;
+                    break;
+                case 82:
+                    rPressed = false;
+                    break;
+                case 84:
+                    tPressed = false;
+                    break;
+                case 80:
+                    pPressed = false;
                     break;
             }
         };
