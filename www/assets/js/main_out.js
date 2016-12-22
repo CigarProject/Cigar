@@ -165,7 +165,7 @@
         };
         wHandle.onblur = function() {
             sendUint8(19);
-            wPressed = qPressed = spacePressed = false
+            wPressed = spacePressed = qPressed = ePressed = rPressed = tPressed = pPressed = false
         };
 
         wHandle.onresize = canvasResize;
