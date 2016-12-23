@@ -479,16 +479,16 @@
 
         var flags = view.getUint8(offset++);
         
-        if (flags & 8) {
-            offset += 4;
+        if (flags & 0x80) {
+            // SERVER Message
         }
 
-        if (flags & 4) {
-            offset += 8;
+        if (flags & 0x40) {
+            // ADMIN Message
         }
 
-        if (flags & 2) {
-            offset += 16;
+        if (flags & 0x20) {
+            // MOD Message
         }
 
         var r = view.getUint8(offset++),
