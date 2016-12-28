@@ -1390,11 +1390,7 @@
                     ctx.save();
                     ctx.clip();
                     //Draw skin
-                    ctx.drawImage(c, 
-                                  this.x - bigPointSize, 
-                                  this.y - bigPointSize, 
-                                  2 * bigPointSize, 
-                                  2 * bigPointSize);
+                    ctx.drawImage(c, this.x - bigPointSize, this.y - bigPointSize, 2 * bigPointSize, 2 * bigPointSize);
                     ctx.restore();
                 }
                 if ((showColor || 15 < this.size) && !b) {
@@ -1402,8 +1398,7 @@
                     ctx.globalAlpha *= .1;
                     ctx.stroke();
                 }
-                ctx.globalAlpha = 1;
-                
+                ctx.globalAlpha = 1; 
                 c = -1 != playerCells.indexOf(this);
                 var ncache;
                 //draw name
