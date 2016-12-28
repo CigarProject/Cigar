@@ -1325,14 +1325,18 @@
                 if (10 > this.getNumPoints()) b = true;
                 if (this.wasSimpleDrawing && !b)
                     for (var c = 0; c < this.points.length; c++) this.points[c].size = this.size;
-                this.wasSimpleDrawing = b;
+                var bigPointSize = this.size;
+				if(!this.wasSimpleDrawing) {
+                    for (var c = 0; c < this.points.length; c++) bigPointSize = Math.max(this.points[c].size, bigPointSize);
+                }
+				this.wasSimpleDrawing = b;
                 ctx.save();
                 this.drawTime = timestamp;
                 c = this.updatePos();
                 this.destroyed && (ctx.globalAlpha *= 1 - c);
                 ctx.lineWidth = 10;
                 ctx.lineCap = "round";
-                ctx.lineJoin = this.isVirus ? "miter" : "round";
+                ctx.lineJoin = this.isVirus ? "miter" : "round"; //Rounded
                 if (showColor) {
                     ctx.fillStyle = "#FFFFFF";
                     ctx.strokeStyle = "#AAAAAA";
@@ -1349,11 +1353,12 @@
                     ctx.stroke();
                 } else {
                     this.movePoints();
+                    ctx.beginPath();
                     var d = this.getNumPoints();
                     ctx.moveTo(this.points[0].x, this.points[0].y);
                     for (c = 1; c <= d; ++c) {
                         var e = c % d;
-                        ctx.lineTo(this.points[e].x, this.points[e].y)
+                        ctx.lineTo(this.points[e].x, this.points[e].y); //Draw circle of cell
                     }
                 }
                 ctx.closePath();
@@ -1379,25 +1384,27 @@
                 } else {
                     c = null;
                 }
-
-                c = (e = c) ? -1 != ib.indexOf(skinName) : false;
                 b || ctx.stroke();
-                ctx.fill();
-                if (!(null == e || c)) {
+                ctx.fill(); //Draw cell content
+                if (c) {
+                    
                     ctx.save();
                     ctx.clip();
-                    ctx.drawImage(e, this.x - this.size, this.y - this.size, 2 * this.size, 2 * this.size);
+                    //Draw skin
+                    ctx.drawImage(c, 
+                                  this.x - bigPointSize, 
+                                  this.y - bigPointSize, 
+                                  2 * bigPointSize, 
+                                  2 * bigPointSize);
                     ctx.restore();
                 }
-                if ((showColor || 15 < this.size) && !b) {
+                 if ((showColor || 15 < this.size) && !b) {
                     ctx.strokeStyle = '#000000';
                     ctx.globalAlpha *= .1;
                     ctx.stroke();
                 }
                 ctx.globalAlpha = 1;
-                if (null != e && c) {
-                    ctx.drawImage(e, this.x - 2 * this.size, this.y - 2 * this.size, 4 * this.size, 4 * this.size);
-                }
+                
                 c = -1 != playerCells.indexOf(this);
                 var ncache;
                 //draw name
