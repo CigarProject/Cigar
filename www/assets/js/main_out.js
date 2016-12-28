@@ -1326,17 +1326,17 @@
                 if (this.wasSimpleDrawing && !b)
                     for (var c = 0; c < this.points.length; c++) this.points[c].size = this.size;
                 var bigPointSize = this.size;
-				if(!this.wasSimpleDrawing) {
+                if(!this.wasSimpleDrawing) {
                     for (var c = 0; c < this.points.length; c++) bigPointSize = Math.max(this.points[c].size, bigPointSize);
                 }
-				this.wasSimpleDrawing = b;
+                this.wasSimpleDrawing = b;
                 ctx.save();
                 this.drawTime = timestamp;
                 c = this.updatePos();
                 this.destroyed && (ctx.globalAlpha *= 1 - c);
                 ctx.lineWidth = 10;
                 ctx.lineCap = "round";
-                ctx.lineJoin = this.isVirus ? "miter" : "round"; //Rounded
+                ctx.lineJoin = this.isVirus ? "miter" : "round";
                 if (showColor) {
                     ctx.fillStyle = "#FFFFFF";
                     ctx.strokeStyle = "#AAAAAA";
@@ -1387,7 +1387,6 @@
                 b || ctx.stroke();
                 ctx.fill(); //Draw cell content
                 if (c) {
-                    
                     ctx.save();
                     ctx.clip();
                     //Draw skin
@@ -1398,7 +1397,7 @@
                                   2 * bigPointSize);
                     ctx.restore();
                 }
-                 if ((showColor || 15 < this.size) && !b) {
+                if ((showColor || 15 < this.size) && !b) {
                     ctx.strokeStyle = '#000000';
                     ctx.globalAlpha *= .1;
                     ctx.stroke();
@@ -1411,9 +1410,9 @@
                 if (0 != this.id) {
                     var x = ~~this.x,
                         y = ~~this.y,
-						nz = this.getNameSize(),
-                        ratio = Math.ceil(10 * viewZoom) * 0.1;
-                    var ratD = 1 / ratio;
+                        nz = this.getNameSize(),
+                        ratio = Math.ceil(10 * viewZoom) * 0.1,
+                        ratD = 1 / ratio;
                     if ((showName || c) && this.name && this.nameCache && (null == e || -1 == knownNameDict_noDisp.indexOf(skinName))) {
                         ncache = this.nameCache;
                         ncache.setValue(this.name);
