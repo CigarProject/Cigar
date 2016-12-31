@@ -12,7 +12,7 @@ You will need a webserver capable of running PHP only, also it cannot be run off
 This version of the client is using the new-ish protocol 5. Now supporting larger maps sizes and many different upgrades. As well, you can now use hidden skin setting with the angled brackets, if the server supports it.
 
 ## Recommended Servers
-This client can be used with any server that is built with the same protocol and connect with it properly. However, the recommended server that we are building for and works best with Cigar to get all the features out of it with is [MultiOgar](https://github.com/Barbosik/MultiOgar).
+This client can be used with any server that is built with the same protocol and connect with it properly. However, the recommended server that we are building for and works best with Cigar to get all the features out of it with is [MultiOgar-Edited](https://github.com/Megabyte918/MultiOgar-Edited).
 
 ## Configuring Cigar
 ### Adding More Server Dropdowns
