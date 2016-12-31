@@ -37,7 +37,7 @@ The skins folder can be changed to any folder that is located on your web server
 SKIN_URL = "./skins/"; // Skin Directory
 ```
 
-Update the ./skins/ to the directory that the skins folder is located in. You can also back out into directories out of where the game.js is being called from by using /../ for each directory.
+Update the ./skins/ to the directory that the skins folder is located in. You can also back out into directories out of where the main_out.js is being called from by using /../ for each directory.
 
 You also need to update one line inside of the checkdir.php file:
 
