@@ -5,7 +5,7 @@
     Array.prototype.remove = function(a) {
         let i = this.indexOf(a);
         if (i !== -1) {
-            this.splice(index, 1);
+            this.splice(i, 1);
             return true;
         }
         return false;
@@ -22,6 +22,7 @@
         SEND_254 = new Uint8Array([254, 6, 0, 0, 0]),
         SEND_255 = new Uint8Array([255, 1, 0, 0, 0]),
         UINT8_CACHE = {
+            1: new Uint8Array([1]),
             17: new Uint8Array([17]),
             21: new Uint8Array([21]),
             18: new Uint8Array([18]),
@@ -32,7 +33,6 @@
         }
         LOAD_START = +new Date,
         FPS_MAXIMUM = 1000,
-        USE_WRAF = false,
         ws = null,
         disconnectDelay = 1;
 
@@ -55,6 +55,9 @@
         leaderboardType = "none";
         centerX = 0;
         centerY = 0;
+        _cX = 0;
+        _cY = 0;
+        _cZoom = 1;
         border = BORDER_DEFAULT;
         knownSkins = [];
         loadedSkins = [];
@@ -209,11 +212,13 @@
 
                     if (node) {
                         var dt = (time - node.timeStamp) / 120;
+                        dt = Math.min(Math.max(dt, 0), 1);
                         node.setPos(x, y, dt);
                         node.setSize(size, dt);
                         color && (node.setColor(color));
                         name && (node.setName(name));
                         skin && (node.skin = skin);
+                        node.timeStamp = time;
                     } else {
                         node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", time, flags);
                         nodesID[id] = node;
@@ -225,11 +230,17 @@
                 count = reader.getUint16();
                 for (i = 0; i < count; i++) {
                     killed = reader.getUint32();
-                    if (killed !== 0) nodesID[killed].destroy();
+                    if (killed !== 0 && nodesID[killed]) nodesID[killed].destroy();
+                    else if (killed !== 0) log.warn("Removing unknown cell")
                 }
                 break;
+            case 0x11:
+                // Update position (spectate packet)
+                _cX = reader.getFloat32();
+                _cY = reader.getFloat32();
+                _cZoom = reader.getFloat32();
             default:
-                log.err("Got unexpected packet ID ")
+                log.err("Got unexpected packet ID " + packet)
                 Disconnect();
         }
     }
@@ -284,14 +295,15 @@
         leaderboardType = -1, // -1 - Not set, 48 - Text list, 49 - FFA list, 50 - Pie chart
         centerX = 0,
         centerY = 0,
-        _cX, _cY, // Spectate packet X & Y
+        _cX = 0, _cY = 0, _cZoom = 1, // Spectate packet X, Y & zoom
         rawMouseX = 0,
         rawMouseY = 0,
         border = BORDER_DEFAULT,
         knownSkins = [],
         loadedSkins = [],
-        drawZoom = 1,
-        mouseZoom = 1,
+        drawZoom = 1,  // Scale when drawing
+        viewZoom = 1,  // Scale without scroll scaling
+        mouseZoom = 1, // Scroll scale
         userName = "",
         // Red Green Blue Yellow Cyan Magenta Orange
         teamColors = ["#FF3333", "#33FF33", "#3333FF", "#FFFF33", "#33FFFF", "#FF33FF", "#FF8833"],
@@ -299,9 +311,7 @@
         serverName = "Realm of emptiness", // Given at SetBorder packet
         chatText = "",
         _sizeChange = false,
-        isTyping = function() {
-            return document.activeElement === chatBox;
-        },
+        isTyping = false,
         mainCanvas = null,
         mainCtx = null,
         chatBox = null,
@@ -406,7 +416,7 @@
         wHandle.onkeydown = function(event) {
             switch (event.keyCode) {
                 case 13: // enter
-                    if (isTyping() && settings.showChat) {
+                    if (isTyping && settings.showChat) {
                         chatBox.blur();
                         var chattxt = chatBox.value;
                         if (chattxt.length > 0) SendChat(chattxt);
@@ -416,31 +426,31 @@
                     }
                     break;
                 case 32: // space
-                    if (isTyping()) break;
+                    if (isTyping) break;
                     WsSend(UINT8_CACHE[17]);
                     break;
                 case 87: // W
-                    if (isTyping()) break;
+                    if (isTyping) break;
                     WsSend(UINT8_CACHE[21]);
                     break;
                 case 81: // Q
-                    if (isTyping()) break;
+                    if (isTyping) break;
                     WsSend(UINT8_CACHE[18]);
                     break;
                 case 69: // E
-                    if (isTyping()) break;
+                    if (isTyping) break;
                     WsSend(UINT8_CACHE[22]);
                     break;
                 case 82: // R
-                    if (isTyping()) break;
+                    if (isTyping) break;
                     WsSend(UINT8_CACHE[23]);
                     break;
                 case 84: // T
-                    if (isTyping()) break;
+                    if (isTyping) break;
                     WsSend(UINT8_CACHE[24]);
                     break;
                 case 80: // P
-                    if (isTyping()) break;
+                    if (isTyping) break;
                     WsSend(UINT8_CACHE[25]);
                     break;
                 case 27: // esc
@@ -480,15 +490,20 @@
                     break;
             }
         }
+        chatBox.onblur = function() {
+            isTyping = false;
+        };
+        chatBox.onfocus = function() {
+            isTyping = true;
+        };
         mainCanvas.onmousemove = function(event) {
             rawMouseX = event.clientX;
             rawMouseY = event.clientY;
         };
         if (window.requestAnimationFrame) {
-            USE_WRAF = true;
             window.requestAnimationFrame(drawLoop);
         } else {
-            setInterval(drawLoop, 1E3 / FPS_MAXIMUM);
+            setInterval(drawGame, 1E3 / FPS_MAXIMUM);
         }
         setInterval(function() {
             fps = 0;
@@ -498,61 +513,64 @@
             SendMouseMove((rawMouseX - mainCanvas.width / 2) / drawZoom + centerX,
                 (rawMouseY - mainCanvas.height / 2) / drawZoom + centerY);
         }, 40);
+        canvasResize();
         log.info("Loaded, took " + (Date.now() - LOAD_START) + " ms");
     }
 
     function drawLoop() {
-        draw();
-        if (USE_WRAF) window.requestAnimationFrame(drawLoop);
+        drawGame();
+        window.requestAnimationFrame(drawLoop);
     }
 
-    function draw() {
-        // Zoom update
-        for (var newdrawZoom = 0, i = 0, l = myNodes.length; i < l; i++) newdrawZoom += myNodes[i].size;
-        newdrawZoom = Math.pow(Math.min(64 / newdrawZoom, 1), .4) * viewMultiplier();
-        drawZoom = (9 * drawZoom + newdrawZoom) / 10;
+    function drawGame() {
+        mainCanvas = document.getElementById('canvas');
+        mainCtx = mainCanvas.getContext('2d');
 
         var canvasWidth = mainCanvas.width,
-            canvasHeight = mainCanvas.height;
+            canvasHeight = mainCanvas.height,
+            newDrawZoom = 0;
 
+        // Zoom and position update
         if (0 < myNodes.length) {
             centerX = centerY = 0;
-            for (var i = 0, l = myNodes.length, n; i < l; i++) {
+            for (var i = 0, l = myNodes.length, n; i < l; i++){
+                viewZoom += myNodes[i].size;
                 centerX += (n = myNodes[i]).x / l;
                 centerY += n.y / l;
             }
-        } else if (_cX && _cY) {
-            centerX += (cX - centerX) * 0.11;
-            centerY += (cY - centerY) * 0.11;
+            viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
+            newDrawZoom = viewZoom * viewMultiplier() * mouseZoom;
+        } else {
+            centerX += (_cX - centerX) * 0.11;
+            centerY += (_cY - centerY) * 0.11;
+            newDrawZoom = _cZoom * viewMultiplier() * mouseZoom;
         }
+        drawZoom += (newDrawZoom - drawZoom) * 0.11;
 
         mainCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-        /*mainCtx.scale(drawZoom, drawZoom);
+        mainCtx.scale(drawZoom, drawZoom);
 
         // Draw grid
         drawGrid();
 
-        mainCtx.translate(canvasWidth / 2 - centerX, canvasHeight / 2 - centerY);*/
+        mainCtx.translate(canvasWidth / 2 - centerX, canvasHeight / 2 - centerY);
 
-        mainCtx.save();
-        mainCtx.lineWidth = 5;
-        mainCtx.strokeStyle = "#000000";
-        mainCtx.beginPath();
-        mainCtx.moveTo(100, 100);
-        mainCtx.lineTo(200, 200);
-        mainCtx.closePath();
-        mainCtx.stroke();
-        mainCtx.restore();
+        for (var i in nodesID) nodesID[i].draw();
 
         var dr = Date.now();
+        fps = (dr - lastDrawTime) / 16.67 * 60;
         lastDrawTime = dr;
     }
 
     function viewMultiplier() {
-        var ratio;
-        ratio = Math.max(mainCanvas.height / 1080, mainCanvas.width / 1920);
-        return ratio * mouseZoom;
+        return Math.max(mainCanvas.height / 1080, mainCanvas.width / 1920);
+    }
+
+    function canvasResize() {
+        window.scrollTo(0, 0);
+        mainCanvas.width = wHandle.innerWidth;
+        mainCanvas.height = wHandle.innerHeight;
+        drawGame();
     }
 
     function drawGrid() {
@@ -564,11 +582,11 @@
         mainCtx.globalAlpha = .2;
         var a = mainCanvas.width / viewZoom,
             b = mainCanvas.height / viewZoom;
-        for (var c = border.left; c < a; c += 50) {
+        for (var c = -.5 + (-centerX + a / 2) % 50; c < a; c += 50) {
             mainCtx.moveTo(c, 0);
             mainCtx.lineTo(c, b);
         }
-        for (c = border.top; c < b; c += 50) {
+        for (c = -.5 + (-centerY + b / 2) % 50; c < b; c += 50) {
             mainCtx.moveTo(0, c);
             mainCtx.lineTo(a, c);
         }
@@ -580,8 +598,8 @@
         this.id = id;
         this.x = x;
         this.y = y;
-        this.size = size;
-        this.setName(name);
+        this.setSize(size, 1);
+        this.setName(name, 1);
         this.setColor(color);
         this.skin = skin;
         this.timeStamp = tick;
@@ -643,15 +661,25 @@
             nodes.remove(this);
             myNodes.remove(this.id);
             this.destroyed = true;
+            if (myNodes.length === 0) {
+                _cX = centerX;
+                _cY = centerY;
+                _cZoom = viewZoom;
+            }
         },
         shouldRender: function() {
 
         },
         draw: function() {
             mainCtx.save();
-            mainCtx.lineWidth = 5;
+            mainCtx.lineWidth = this.size * 0.03;
             mainCtx.lineJoin = "round";
-
+            mainCtx.fillStyle = this.color;
+            mainCtx.strokeStyle = this.strokeColor
+            mainCtx.beginPath();
+            mainCtx.arc(this.x, this.y, this.size * 0.985 + 5, 0, 2 * Math.PI, false);
+            mainCtx.stroke();
+            mainCtx.closePath();
             mainCtx.restore();
         }
     };
@@ -682,6 +710,9 @@
     };
     wHandle.setChatHide = function(a) {
         settings.showChat = a;
+    };
+    wHandle.spectate = function(a) {
+        WsSend(UINT8_CACHE[1]);
     };
 
     wHandle.onload = loadInit;
