@@ -171,10 +171,14 @@
 
                 // Consume records
                 count = reader.getUint16();
-                for (i = 0; i < count; i++) {
+                for (var i = 0; i < count; i++) {
                     killer = reader.getUint32();
                     killed = reader.getUint32();
-                    if (killer && killed && killed !== 0) nodesID[killed].destroy();
+                    if (killer && killed) {
+                        killed.nx = killer.x;
+                        killed.ny = killer.y;
+                        killed.nSize = 0; // Size decreasing animation
+                    }
                 }
 
                 // Node update records
@@ -182,43 +186,37 @@
                     id = reader.getUint32();
                     if (0 === id) break;
 
-                    node = nodesID.hasOwnProperty(id) ? nodesID[id] : null;
-
                     x = reader.getInt32();
                     y = reader.getInt32();
                     size = reader.getUint16();
 
                     flags = reader.getUint8();
-                    updColor = flags & 0x02;
-                    updName = flags & 0x08;
-                    updSkin = flags & 0x04;
+                    updColor = !!(flags & 0x02);
+                    updName = !!(flags & 0x08);
+                    updSkin = !!(flags & 0x04);
                     var color = null,
                         name = null,
                         skin = null,
                         tmp = "";
 
                     if (updColor) {
-                        color = "#";
-                        tmp = reader.getUint8();
-                        color += tmp.length === 1 ? ("0" + tmp) : tmp;
-                        tmp = reader.getUint8();
-                        color += tmp.length === 1 ? ("0" + tmp) : tmp;
-                        tmp = reader.getUint8();
-                        color += tmp.length === 1 ? ("0" + tmp) : tmp;
+                        color = "";
+                        for (var r = reader.getUint8(), g = reader.getUint8(), b = reader.getUint8(),
+                            color = (r << 16 | g << 8 | b).toString(16); 6 > color.length;) color = "0" + color;
+                        color = "#" + color;
                     }
 
                     if (updName) name = reader.getStringUTF8();
                     if (updSkin) skin = reader.getStringUTF8();
 
-                    if (node) {
-                        var dt = (time - node.timeStamp) / 120;
-                        dt = Math.min(Math.max(dt, 0), 1);
-                        node.setPos(x, y, dt);
-                        node.setSize(size, dt);
-                        color && (node.setColor(color));
-                        name && (node.setName(name));
-                        skin && (node.skin = skin);
-                        node.timeStamp = time;
+                    if (nodesID.hasOwnProperty(id)) {
+                        node = nodesID[id];
+                        node.nx = x;
+                        node.ny = y;
+                        node.nSize = size;
+                        updColor && (node.setColor(color));
+                        updName && (node.setName(name));
+                        updSkin && (node.skin = skin);
                     } else {
                         node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", time, flags);
                         nodesID[id] = node;
@@ -230,8 +228,7 @@
                 count = reader.getUint16();
                 for (i = 0; i < count; i++) {
                     killed = reader.getUint32();
-                    if (killed !== 0 && nodesID[killed]) nodesID[killed].destroy();
-                    else if (killed !== 0) log.warn("Removing unknown cell")
+                    if (killed !== 0 && nodesID.hasOwnProperty(killed)) nodesID[killed].destroy();
                 }
                 break;
             case 0x11:
@@ -266,20 +263,21 @@
 
     function WsSend(data) {
         if (!ws) return;
+        if (ws.readyState !== 1) return; // Still connecting
         if (data.build) ws.send(data.build());
         else ws.send(data);
     }
 
-    function Play() {
+    function Play(name) {
+        log.info("Playing");
         var writer = new Writer(true);
         writer.setUint8(0x00);
-        writer.setStringUTF8(userName);
+        writer.setStringUTF8(name);
+        userName = name;
         WsSend(writer);
     }
 
     function SendMouseMove(x, y) {
-        if (!ws) return;
-        if (ws.readyState !== 1) return; // Still connecting
         var writer = new Writer(true);
         writer.setUint8(0x10);
         writer.setUint32(x);
@@ -291,6 +289,7 @@
     // Game variables
     var nodesID = { },
         nodes = [],
+        deadNodes = [],
         myNodes = [],
         leaderboard = [],
         leaderboardType = -1, // -1 - Not set, 48 - Text list, 49 - FFA list, 50 - Pie chart
@@ -305,10 +304,11 @@
         drawZoom = 1,  // Scale when drawing
         viewZoom = 1,  // Scale without scroll scaling
         mouseZoom = 1, // Scroll scale
+        drawing = false,
         userName = "",
         // Red Green Blue Yellow Cyan Magenta Orange
         teamColors = ["#FF3333", "#33FF33", "#3333FF", "#FFFF33", "#33FFFF", "#FF33FF", "#FF8833"],
-        gameType = -1, // Given at SetBorder packet
+        gameType = -1; // Given at SetBorder packet
         serverName = "Realm of emptiness", // Given at SetBorder packet
         chatText = "",
         _sizeChange = false,
@@ -317,7 +317,7 @@
         mainCtx = null,
         chatBox = null,
         lastDrawTime = Date.now(),
-        escOverlay = true,
+        escOverlay = false,
         fps = 0,
         pressed = {
             space: false,
@@ -402,6 +402,7 @@
         mainCanvas = document.getElementById('canvas');
         mainCtx = mainCanvas.getContext('2d');
         chatBox = document.getElementById("chat_textbox");
+        mainCanvas.focus();
         // wHandle functions
         function handleWheel(event) {
             mouseZoom *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
@@ -516,6 +517,7 @@
             window.requestAnimationFrame(drawLoop);
         else
             setInterval(drawGame, 1E3 / FPS_MAXIMUM);
+        showESCOverlay();
     }
 
     function drawLoop() {
@@ -523,75 +525,66 @@
         window.requestAnimationFrame(drawLoop);
     }
 
+    function drawLeaderboard() {
+
+    }
+
     function drawGame() {
+        var dr = Date.now();
+        fps = (dr - lastDrawTime) * 3.59926;
+        lastDrawTime = dr;
+
         mainCanvas = document.getElementById('canvas');
         mainCtx = mainCanvas.getContext('2d');
-
-        var cW = mainCanvas.width,
-            cH = mainCanvas.height,
+        var cW = mainCanvas.width = wHandle.innerWidth,
+            cH = mainCanvas.height = wHandle.innerHeight,
             cW2 = cW / 2,
             cH2 = cH / 2,
             newDrawZoom = 0,
             viewMult = viewMultiplier(),
-            i, l, n;
+            i, l = myNodes.length, n;
 
         // Zoom and position update
-        if (0 < (l = myNodes.length)) {
+        if (l > 0) {
             centerX = centerY = 0;
+            var rl = 0;
             for (i = 0; i < l; i++) {
-                viewZoom += nodesID[i].size;
-                centerX += (n = nodesID[i]).x / l;
-                centerY += n.y / l;
+                n = nodesID[myNodes[i]];
+                if (!n) continue;
+                viewZoom += n.size;
+                centerX += n.x;
+                centerY += n.y;
+                rl++;
+            }
+            if (rl !== 0) {
+                centerX /= rl;
+                centerY /= rl;
             }
             viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
-            newDrawZoom = viewZoom * viewMult * mouseZoom;
+            newDrawZoom = viewZoom * viewMult;
         } else {
             centerX += (_cX - centerX) * 0.11;
             centerY += (_cY - centerY) * 0.11;
-            newDrawZoom = _cZoom * viewMult * mouseZoom;
+            newDrawZoom = _cZoom * viewMult;
         }
-        drawZoom += (newDrawZoom - drawZoom) * 0.11;
+        drawZoom += (newDrawZoom * mouseZoom - drawZoom) * 0.11;
 
-        mainCtx.clearRect(0, 0, cW, cH);
+        //mainCtx.clearRect(0, 0, cW, cH);
 
         mainCtx.save();
         mainCtx.fillStyle = settings.darkTheme ? "#111111" : "#F2FBFF";
         mainCtx.fillRect(0, 0, cW, cH);
         mainCtx.restore();
+        mainCtx.translate(cW2 - centerX * drawZoom, cH2 - centerY * drawZoom);
+        mainCtx.scale(drawZoom, drawZoom);
 
-        mainCtx.translate(cW2, cH2);
-        mainCtx.translate(-centerX, -centerY);
+        drawing = true;
+        var a = nodes.concat(deadNodes);
+        a.sort(nodeSort);
 
-        /*if (!settings.drawGrid) {
-            mainCtx.save();
-            mainCtx.strokeStyle = settings.darkTheme ? "#AAAAAA" : "#000000";
-            mainCtx.globalAlpha = .2;
-            mainCtx.scale(drawZoom, drawZoom);
-            var a = cW / drawZoom,
-                b = cH / drawZoom;
-            for (var c = -.5 + (-nodeX + a / 2) % 50; c < a; c += 50) {
-                mainCtx.moveTo(c, 0);
-                mainCtx.lineTo(c, b);
-            }
-            mainCtx.stroke();
-            mainCtx.beginPath();
-            for (c = -.5 + (-nodeY + b / 2) % 50; c < b; c += 50) {
-                mainCtx.moveTo(0, c);
-                mainCtx.lineTo(a, c);
-            }
-            mainCtx.stroke()
-            mainCtx.restore()
-        }*/
-
-        nodelist.sort(nodesort);
-
-        l = nodelist.length;
-        for (i = 0; i < l; i++) nodelist[i].draw();
-
-
-        var dr = Date.now();
-        fps = (dr - lastDrawTime) * 3.59926;
-        lastDrawTime = dr;
+        l = a.length;
+        for (i = 0; i < l; i++) a[i].draw(lastDrawTime);
+        drawing = false;
     }
 
     function nodeSort(a, b) {
@@ -611,18 +604,18 @@
 
     function Cell(id, x, y, size, name, color, skin, tick, flags) {
         this.id = id;
-        this.x = x;
-        this.y = y;
-        this.setSize(size, 1);
+        this.x = this.nx = x;
+        this.y = this.ny = y;
+        this.size = this.nSize = size;
         this.setName(name, 1);
         this.setColor(color);
         this.skin = skin;
         this.timeStamp = tick;
         this.nUpd = 0;
         if (flags) {
-            this.isEjected = flags & 0x20;
-            this.isVirus = flags & 0x01;
-            this.isAgitated = flags & 0x10;
+            this.isEjected = !!(flags & 0x20);
+            this.isVirus = !!(flags & 0x01);
+            this.isAgitated = !!(flags & 0x10);
         }
     }
 
@@ -635,27 +628,30 @@
         name: 0,
         color: "#FFFFFF",
         skin: "",
+        deathStamp: -1,
         timeStamp: -1,
+        noUpdateTimes: 0,
         nx: 0,
         ny: 0,
-        nsize: 0,
+        nSize: 0,
         isEjected: false,
         isPellet: false,
         isVirus: false,
         isAgitated: false,
         strokeColor: "#AAAAAA",
         _nameChanged: false,
+        _meCache: null, // If it's a pellet it'll draw from this cache
         _nameTxt: null,
         _massTxt: null,
-        setPos: function(x, y, dt) {
-            this.x += (x - this.x) * dt;
-            this.y += (y - this.y) * dt;
-            this.nx = x;
-            this.ny = y;
-        },
-        setSize: function(size, dt) {
-            this.size += (size - this.size) * dt;
-            this.nsize = size;
+        updateAppearance: function(time) {
+            var dt = Math.min(Math.max((time - this.timeStamp) / 120, 0), 1);
+            this.x += (this.nx - this.x) * dt;
+            this.y += (this.ny - this.y) * dt;
+            this.size += (this.nSize - this.size) * dt;
+            if (this.deathStamp)
+                if (time - this.deathStamp > 1000 || this.size < 10)
+                    // Fully remove
+                    deadNodes.remove(this);
         },
         setName: function(name) {
             this._nameChanged = true;
@@ -671,12 +667,14 @@
             if (b.length == 1) b = "0" + b;
             this.strokeColor = "#" + r + g + b;
         },
-        destroy: function() {
+        destroy: function(time) {
+            var nL = myNodes.length;
             delete nodesID[this.id];
             nodes.remove(this);
             myNodes.remove(this.id);
+            deadNodes.push(this);
             this.destroyed = true;
-            if (myNodes.length === 0) {
+            if (myNodes.length === 0 && nL > 0) {
                 _cX = centerX;
                 _cY = centerY;
                 _cZoom = viewZoom;
@@ -685,17 +683,21 @@
         shouldRender: function() {
 
         },
-        draw: function() {
-            mainCtx.save();
-            mainCtx.lineWidth = this.size * 0.03;
-            mainCtx.lineJoin = "round";
-            mainCtx.fillStyle = this.color;
-            mainCtx.strokeStyle = this.strokeColor
-            mainCtx.beginPath();
-            mainCtx.arc(this.x, this.y, this.size * 0.985 + 5, 0, 2 * Math.PI, false);
-            mainCtx.stroke();
-            mainCtx.closePath();
-            mainCtx.restore();
+        draw: function(time, ctx) {
+            this.updateAppearance(time);
+            this.timeStamp = time;
+            ctx.save();
+            ctx.lineWidth = this.isEjected ? 0 : Math.min(this.size * 0.03, 10);
+            ctx.lineCap = "round";
+            ctx.lineJoin = this.isVirus ? "miter" : "round";
+            ctx.fillStyle = this.color;
+            ctx.strokeStyle = this.strokeColor;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size - ctx.lineWidth * 0.5, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.stroke();
+            ctx.closePath();
+            ctx.restore();
         }
     };
 
@@ -728,7 +730,12 @@
     };
     wHandle.spectate = function(a) {
         WsSend(UINT8_CACHE[1]);
+        hideESCOverlay();
     };
+    wHandle.play = function(a) {
+        Play(a);
+        hideESCOverlay();
+    }
 
     wHandle.onload = loadInit;
 })(window, window.jQuery);
