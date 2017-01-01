@@ -239,6 +239,7 @@
                 _cX = reader.getFloat32();
                 _cY = reader.getFloat32();
                 _cZoom = reader.getFloat32();
+                break;
             default:
                 log.err("Got unexpected packet ID " + packet)
                 Disconnect();
@@ -405,7 +406,7 @@
         function handleWheel(event) {
             mouseZoom *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
             1 > mouseZoom && (mouseZoom = 1);
-            mouseZoom > 4 / drawZoom && (mouseZoom = 4 / drawZoom);
+            mouseZoom > 4 / viewZoom && (mouseZoom = 4 / viewZoom);
         }
         // Mouse wheel
         if (/firefox/i.test(navigator.userAgent)) {
@@ -500,11 +501,6 @@
             rawMouseX = event.clientX;
             rawMouseY = event.clientY;
         };
-        if (window.requestAnimationFrame) {
-            window.requestAnimationFrame(drawLoop);
-        } else {
-            setInterval(drawGame, 1E3 / FPS_MAXIMUM);
-        }
         setInterval(function() {
             fps = 0;
         }, 1000);
@@ -513,8 +509,13 @@
             SendMouseMove((rawMouseX - mainCanvas.width / 2) / drawZoom + centerX,
                 (rawMouseY - mainCanvas.height / 2) / drawZoom + centerY);
         }, 40);
+        wHandle.onresize = canvasResize;
         canvasResize();
         log.info("Loaded, took " + (Date.now() - LOAD_START) + " ms");
+        if (window.requestAnimationFrame)
+            window.requestAnimationFrame(drawLoop);
+        else
+            setInterval(drawGame, 1E3 / FPS_MAXIMUM);
     }
 
     function drawLoop() {
@@ -526,40 +527,75 @@
         mainCanvas = document.getElementById('canvas');
         mainCtx = mainCanvas.getContext('2d');
 
-        var canvasWidth = mainCanvas.width,
-            canvasHeight = mainCanvas.height,
-            newDrawZoom = 0;
+        var cW = mainCanvas.width,
+            cH = mainCanvas.height,
+            cW2 = cW / 2,
+            cH2 = cH / 2,
+            newDrawZoom = 0,
+            viewMult = viewMultiplier(),
+            i, l, n;
 
         // Zoom and position update
-        if (0 < myNodes.length) {
+        if (0 < (l = myNodes.length)) {
             centerX = centerY = 0;
-            for (var i = 0, l = myNodes.length, n; i < l; i++){
-                viewZoom += myNodes[i].size;
-                centerX += (n = myNodes[i]).x / l;
+            for (i = 0; i < l; i++) {
+                viewZoom += nodesID[i].size;
+                centerX += (n = nodesID[i]).x / l;
                 centerY += n.y / l;
             }
             viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
-            newDrawZoom = viewZoom * viewMultiplier() * mouseZoom;
+            newDrawZoom = viewZoom * viewMult * mouseZoom;
         } else {
             centerX += (_cX - centerX) * 0.11;
             centerY += (_cY - centerY) * 0.11;
-            newDrawZoom = _cZoom * viewMultiplier() * mouseZoom;
+            newDrawZoom = _cZoom * viewMult * mouseZoom;
         }
         drawZoom += (newDrawZoom - drawZoom) * 0.11;
 
-        mainCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-        mainCtx.scale(drawZoom, drawZoom);
+        mainCtx.clearRect(0, 0, cW, cH);
 
-        // Draw grid
-        drawGrid();
+        mainCtx.save();
+        mainCtx.fillStyle = settings.darkTheme ? "#111111" : "#F2FBFF";
+        mainCtx.fillRect(0, 0, cW, cH);
+        mainCtx.restore();
 
-        mainCtx.translate(canvasWidth / 2 - centerX, canvasHeight / 2 - centerY);
+        mainCtx.translate(cW2, cH2);
+        mainCtx.translate(-centerX, -centerY);
 
-        for (var i in nodesID) nodesID[i].draw();
+        /*if (!settings.drawGrid) {
+            mainCtx.save();
+            mainCtx.strokeStyle = settings.darkTheme ? "#AAAAAA" : "#000000";
+            mainCtx.globalAlpha = .2;
+            mainCtx.scale(drawZoom, drawZoom);
+            var a = cW / drawZoom,
+                b = cH / drawZoom;
+            for (var c = -.5 + (-nodeX + a / 2) % 50; c < a; c += 50) {
+                mainCtx.moveTo(c, 0);
+                mainCtx.lineTo(c, b);
+            }
+            mainCtx.stroke();
+            mainCtx.beginPath();
+            for (c = -.5 + (-nodeY + b / 2) % 50; c < b; c += 50) {
+                mainCtx.moveTo(0, c);
+                mainCtx.lineTo(a, c);
+            }
+            mainCtx.stroke()
+            mainCtx.restore()
+        }*/
+
+        nodelist.sort(nodesort);
+
+        l = nodelist.length;
+        for (i = 0; i < l; i++) nodelist[i].draw();
+
 
         var dr = Date.now();
-        fps = (dr - lastDrawTime) / 16.67 * 60;
+        fps = (dr - lastDrawTime) * 3.59926;
         lastDrawTime = dr;
+    }
+
+    function nodeSort(a, b) {
+        return a.size === b.size ? a.id - b.id : a.size - b.size;
     }
 
     function viewMultiplier() {
@@ -571,27 +607,6 @@
         mainCanvas.width = wHandle.innerWidth;
         mainCanvas.height = wHandle.innerHeight;
         drawGame();
-    }
-
-    function drawGrid() {
-        if (!settings.drawGrid) return;
-        mainCtx.fillStyle = showDarkTheme ? "#111111" : "#F2FBFF";
-        mainCtx.fillRect(0, 0, canvasWidth, canvasHeight);
-        mainCtx.save();
-        mainCtx.strokeStyle = showDarkTheme ? "#AAAAAA" : "#000000";
-        mainCtx.globalAlpha = .2;
-        var a = mainCanvas.width / viewZoom,
-            b = mainCanvas.height / viewZoom;
-        for (var c = -.5 + (-centerX + a / 2) % 50; c < a; c += 50) {
-            mainCtx.moveTo(c, 0);
-            mainCtx.lineTo(c, b);
-        }
-        for (c = -.5 + (-centerY + b / 2) % 50; c < b; c += 50) {
-            mainCtx.moveTo(0, c);
-            mainCtx.lineTo(a, c);
-        }
-        mainCtx.stroke();
-        mainCtx.restore();
     }
 
     function Cell(id, x, y, size, name, color, skin, tick, flags) {
