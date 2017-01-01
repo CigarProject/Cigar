@@ -44,8 +44,8 @@ Writer.prototype = {
         // Thanks to Damian from StackOverflow
         // Original can be found at http://stackoverflow.com/questions/18729405
         var utf8 = [];
-        for (var i = 0, l = str.length; i < l; i++) {
-            var ch = str.charCodeAt(i);
+        for (var i = 0, l = s.length; i < l; i++) {
+            var ch = s.charCodeAt(i);
             if (ch < 0x80) utf8.push(ch);
             else if (ch < 0x800) {
                 utf8.push(0xc0 | (ch >> 6),
@@ -63,7 +63,7 @@ Writer.prototype = {
                 // subtracting 0x10000 and splitting the
                 // 20 bits of 0x0-0xFFFFF into two halves
                 ch = 0x10000 + (((ch & 0x3ff) << 10)
-                          | (str.charCodeAt(i) & 0x3ff))
+                          | (s.charCodeAt(i) & 0x3ff))
                 utf8.push(0xf0 | (ch >> 18),
                           0x80 | ((ch >> 12) & 0x3f),
                           0x80 | ((ch >> 6) & 0x3f),
