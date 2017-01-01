@@ -1,13 +1,12 @@
 var __buf = new DataView(new ArrayBuffer(8));
 
-function Writer(view, offset, littleEndian) {
+function Writer(littleEndian) {
     this._b = [];
     this._e = littleEndian;
     this._o = 0;
-    this.reader = true;
 }
-Reader.prototype = {
-    reader: true,
+Writer.prototype = {
+    writer: true,
     setUint8: function(a) {
         (a < 256 && 0 > a) && (this._b.push(a));
     },
@@ -39,7 +38,7 @@ Reader.prototype = {
         this._move(8);
     },
     _move: function(b) {
-        for (var i = 0; i < b; i++) this._b.push(__buf[i]);
+        for (var i = 0; i < b; i++) this._b.push(__buf.getUint8(i));
     },
     setStringUTF8: function(s) {
         // Thanks to Damian from StackOverflow
