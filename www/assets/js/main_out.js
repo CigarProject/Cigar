@@ -308,7 +308,7 @@
         userName = "",
         // Red Green Blue Yellow Cyan Magenta Orange
         teamColors = ["#FF3333", "#33FF33", "#3333FF", "#FFFF33", "#33FFFF", "#FF33FF", "#FF8833"],
-        gameType = -1; // Given at SetBorder packet
+        gameType = -1, // Given at SetBorder packet
         serverName = "Realm of emptiness", // Given at SetBorder packet
         chatText = "",
         _sizeChange = false,
