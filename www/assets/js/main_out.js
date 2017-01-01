@@ -89,7 +89,7 @@
     }
 
     function WsMessage(data) {
-        var reader = new Reader(new DataView(data.data)),
+        var reader = new Reader(new DataView(data.data), 0, true),
             i, count,
             packet = reader.getUint8();
         switch (packet) {
@@ -105,6 +105,7 @@
                 // Clear all
                 for (var i in nodesID) nodesID[i].destroy();
             case 0x14:
+                // Clear nodes (case 0x12 slips here too)
                 myNodes = [];
                 break;
             case 0x15:
@@ -124,7 +125,7 @@
                 if (data.data.byteLength !== 33) {
                     // Game type and server name is given
                     gameType = reader.getUint32();
-                    serverName = reader.getUTF8String();
+                    serverName = reader.getStringUTF8();
                 }
                 break;
             // Leaderboard update packets
@@ -136,19 +137,19 @@
                 }
 
                 count = reader.getUint32();
-                for (i = 0; i < count; i++)
-                    leaderboard.push(reader.getUTF8String());
+                for (i = 0; i < count; ++i)
+                    leaderboard.push(reader.getStringUTF8());
                 drawLeaderboard();
                 break;
             case 0x31:
                 // FFA list
                 leaderboardType = 0x31;
                 count = reader.getUint32();
-                for (i = 0; i < count; i++) {
+                for (i = 0; i < count; ++i) {
                     leaderboard.push({
                         me: reader.getUint32(),
-                        name: reader.getUTF8String()
-                    };
+                        name: reader.getStringUTF8()
+                    });
                 }
                 drawLeaderboard();
                 break;
@@ -156,7 +157,7 @@
                 // Pie chart
                 leaderboardType = 0x32;
                 count = reader.getUint32();
-                for (i = 0; i < count; i++)
+                for (i = 0; i < count; ++i)
                     leaderboard.push(reader.getFloat32());
                 break;
             case 0x10:
@@ -170,7 +171,7 @@
                 for (i = 0; i < count; i++) {
                     killer = reader.getUint32();
                     killed = reader.getUint32();
-                    if (killer && killed) killed.destroy();
+                    if (killer && killed && killed !== 0) nodesID[killed].destroy();
                 }
 
                 // Node update records
@@ -203,18 +204,17 @@
                         color += tmp.length === 1 ? ("0" + tmp) : tmp;
                     }
 
-                    if (updName) name = reader.getUTF8String();
-                    if (updSkin) skin = reader.getUTF8String();
+                    if (updName) name = reader.getStringUTF8();
+                    if (updSkin) skin = reader.getStringUTF8();
 
                     if (node) {
-                        var dt = (tick - node.timeStamp) / 120;
+                        var dt = (time - node.timeStamp) / 120;
                         node.setPos(x, y, dt);
                         node.setSize(size, dt);
                         color && (node.setColor(color));
                         name && (node.setName(name));
                         skin && (node.skin = skin);
                     } else {
-                        // id, x, y, size, name, color, skin, tick, flags
                         node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", time, flags);
                         nodesID[id] = node;
                         nodes.push(node);
@@ -225,7 +225,7 @@
                 count = reader.getUint16();
                 for (i = 0; i < count; i++) {
                     killed = reader.getUint32();
-                    killed.destroy();
+                    if (killed !== 0) nodesID[killed].destroy();
                 }
                 break;
             default:
@@ -302,9 +302,9 @@
         isTyping = function() {
             return document.activeElement === chatBox;
         },
-        mainCanvas,
-        mainCtx,
-        chatBox,
+        mainCanvas = null,
+        mainCtx = null,
+        chatBox = null,
         lastDrawTime = Date.now(),
         escOverlay = true,
         fps = 0,
