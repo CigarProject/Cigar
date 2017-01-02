@@ -221,6 +221,27 @@
                         node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", time, flags);
                         nodesID[id] = node;
                         nodes.push(node);
+                        if (node.isPellet) {
+                            // Node is a pellet - draw cache
+                            var _nCache = document.createElement('canvas');
+                            var pCtx = _nCache.getContext('2d'),
+                                lW = Math.max(node.size * 0.03, 10);
+                            _nCache.width = size * 2;
+                            _nCache.height = size * 2;
+                            pCtx.lineWidth = lW;
+                            pCtx.lineCap = pCtx.lineJoin = "round";
+                            pCtx.fillStyle = node.color;
+                            pCtx.strokeStyle = node.strokeColor;
+
+                            pCtx.beginPath();
+                            pCtx.arc(size, size, size - pCtx.lineWidth, 0, 2 * Math.PI, false);
+                            pCtx.fill();
+                            pCtx.stroke();
+                            pCtx.closePath();
+                            node._meCache = _nCache;
+                            node._meW = _nCache.width / 2;
+                            node._meH = _nCache.height / 2;
+                        }
                     }
                 }
 
@@ -313,6 +334,7 @@
         chatText = "",
         _sizeChange = false,
         isTyping = false,
+        isWindowFocused = true,
         mainCanvas = null,
         mainCtx = null,
         chatBox = null,
@@ -415,6 +437,12 @@
         } else {
             document.body.onmousewheel = handleWheel;
         }
+        window.onfocus = function() {
+            isWindowFocused = true;
+        }
+        window.onblur = function() {
+            isWindowFocused = false;
+        }
         wHandle.onkeydown = function(event) {
             switch (event.keyCode) {
                 case 13: // enter
@@ -458,8 +486,8 @@
                 case 27: // esc
                     if (pressed.esc) break;
                     pressed.esc = true;
-                    if (!escOverlay) showESCOverlay();
-                    else hideESCOverlay();
+                    if (escOverlay) hideESCOverlay();
+                    else showESCOverlay();
                     break;
             }
         };
@@ -503,9 +531,6 @@
             rawMouseY = event.clientY;
         };
         setInterval(function() {
-            fps = 0;
-        }, 1000);
-        setInterval(function() {
             // Mouse update
             SendMouseMove((rawMouseX - mainCanvas.width / 2) / drawZoom + centerX,
                 (rawMouseY - mainCanvas.height / 2) / drawZoom + centerY);
@@ -530,8 +555,8 @@
     }
 
     function drawGame() {
-        var dr = Date.now();
-        fps = (dr - lastDrawTime) * 3.59926;
+        var dr = Date.now(), passed;
+        fps = 1000 / (passed = dr - lastDrawTime);
         lastDrawTime = dr;
 
         mainCanvas = document.getElementById('canvas');
@@ -569,21 +594,32 @@
         }
         drawZoom += (newDrawZoom * mouseZoom - drawZoom) * 0.11;
 
-        //mainCtx.clearRect(0, 0, cW, cH);
+        // mainCtx.clearRect(0, 0, cW, cH);
+
+        drawing = true;
 
         mainCtx.save();
         mainCtx.fillStyle = settings.darkTheme ? "#111111" : "#F2FBFF";
         mainCtx.fillRect(0, 0, cW, cH);
         mainCtx.restore();
+
+        mainCtx.save();
+        mainCtx.font = "20px Ubuntu";
+        mainCtx.fillStyle = settings.darkTheme ? "#F2FBFF" : "#111111";
+        mainCtx.fillText(~~fps + " FPS", 2, 22);
+        mainCtx.restore();
+
         mainCtx.translate(cW2 - centerX * drawZoom, cH2 - centerY * drawZoom);
         mainCtx.scale(drawZoom, drawZoom);
 
-        drawing = true;
         var a = nodes.concat(deadNodes);
         a.sort(nodeSort);
 
         l = a.length;
-        for (i = 0; i < l; i++) a[i].draw(lastDrawTime);
+        for (i = 0; i < l; i++) {
+            n = a[i];
+            n.draw(lastDrawTime, mainCtx);
+        }
         drawing = false;
     }
 
@@ -616,6 +652,7 @@
             this.isEjected = !!(flags & 0x20);
             this.isVirus = !!(flags & 0x01);
             this.isAgitated = !!(flags & 0x10);
+            this.isPellet = !!(flags & 0x40);
         }
     }
 
@@ -630,7 +667,7 @@
         skin: "",
         deathStamp: -1,
         timeStamp: -1,
-        noUpdateTimes: 0,
+        _ts: -1,
         nx: 0,
         ny: 0,
         nSize: 0,
@@ -641,6 +678,8 @@
         strokeColor: "#AAAAAA",
         _nameChanged: false,
         _meCache: null, // If it's a pellet it'll draw from this cache
+        _meW: null,
+        _meH: null,
         _nameTxt: null,
         _massTxt: null,
         updateAppearance: function(time) {
@@ -668,17 +707,16 @@
             this.strokeColor = "#" + r + g + b;
         },
         destroy: function(time) {
-            var nL = myNodes.length;
             delete nodesID[this.id];
             nodes.remove(this);
-            myNodes.remove(this.id);
-            deadNodes.push(this);
-            this.destroyed = true;
-            if (myNodes.length === 0 && nL > 0) {
+            if (myNodes.remove(this.id) && myNodes.length === 0) {
                 _cX = centerX;
                 _cY = centerY;
                 _cZoom = viewZoom;
+                showESCOverlay();
             }
+            deadNodes.push(this);
+            this.destroyed = true;
         },
         shouldRender: function() {
 
@@ -686,18 +724,25 @@
         draw: function(time, ctx) {
             this.updateAppearance(time);
             this.timeStamp = time;
-            ctx.save();
-            ctx.lineWidth = this.isEjected ? 0 : Math.min(this.size * 0.03, 10);
-            ctx.lineCap = "round";
-            ctx.lineJoin = this.isVirus ? "miter" : "round";
-            ctx.fillStyle = this.color;
-            ctx.strokeStyle = this.strokeColor;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size - ctx.lineWidth * 0.5, 0, 2 * Math.PI, false);
-            ctx.fill();
-            ctx.stroke();
-            ctx.closePath();
-            ctx.restore();
+            if (this._meCache) {
+                // Cached drawing exists - use it
+                ctx.drawImage(this._meCache, this.x - this._meW, this.y - this._meH);
+            } else {
+                ctx.save();
+                ctx.lineWidth = this.isEjected ? 0 : Math.max(this.size * 0.03, 10);
+                ctx.lineCap = "round";
+                ctx.lineJoin = this.isVirus ? "miter" : "round";
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = this.strokeColor;
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size - ctx.lineWidth * 0.5, 0, 2 * Math.PI, false);
+                ctx.fill();
+                ctx.stroke();
+                ctx.closePath();
+
+                ctx.restore();
+            }
         }
     };
 
