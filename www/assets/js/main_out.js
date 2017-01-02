@@ -1,4 +1,6 @@
 (function(wHandle, wjQuery) {
+    if (navigator.appVersion.indexOf("MSIE") != -1)
+	alert("You're using a pretty old browser, some parts of the website might not work properly.");
     var CONNECTION_URL = "127.0.0.1:443", // Default Connection
         SKIN_URL = "./skins/"; // Skin Directory
 
