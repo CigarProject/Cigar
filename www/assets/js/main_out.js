@@ -19,6 +19,7 @@
             right: 2E3,
             bottom: 2E3
         },
+        PI_2 = Math.PI * 2,
         SEND_254 = new Uint8Array([254, 6, 0, 0, 0]),
         SEND_255 = new Uint8Array([255, 1, 0, 0, 0]),
         UINT8_CACHE = {
@@ -51,6 +52,7 @@
         nodesID = { };
         nodes = [];
         myNodes = [];
+        deadNodes = [];
         leaderboard = [];
         leaderboardType = "none";
         centerX = 0;
@@ -106,7 +108,7 @@
                 break;
             case 0x12:
                 // Clear all
-                for (var i in nodesID) nodesID[i].destroy();
+                for (var i in nodesID) nodesID[i].destroy(Date.now());
             case 0x14:
                 // Clear nodes (case 0x12 slips here too)
                 myNodes = [];
@@ -134,6 +136,7 @@
             // Leaderboard update packets
             case 0x30:
                 // Text list, somewhat deprecated
+                leaderboard = [];
                 if (leaderboardType != 0x30) {
                     leaderboardType = 0x30;
                     log.info("Got somewhat deprecated leaderboard type 48 (0x30). Server-side is possibly Ogar")
@@ -146,6 +149,7 @@
                 break;
             case 0x31:
                 // FFA list
+                leaderboard = [];
                 leaderboardType = 0x31;
                 count = reader.getUint32();
                 for (i = 0; i < count; ++i) {
@@ -158,6 +162,7 @@
                 break;
             case 0x32:
                 // Pie chart
+                leaderboard = [];
                 leaderboardType = 0x32;
                 count = reader.getUint32();
                 for (i = 0; i < count; ++i)
@@ -172,12 +177,14 @@
                 // Consume records
                 count = reader.getUint16();
                 for (var i = 0; i < count; i++) {
-                    killer = reader.getUint32();
-                    killed = reader.getUint32();
-                    if (killer && killed) {
-                        killed.nx = killer.x;
-                        killed.ny = killer.y;
-                        killed.nSize = 0; // Size decreasing animation
+                    killer = nodesID[reader.getUint32()];
+                    killed = nodesID[reader.getUint32()];
+                    if (killed != null) {
+                        if (killer != null) {
+                            killed.nx = killer.nx;
+                            killed.ny = killer.ny;
+                        }
+                        killed.nSize = 0;
                     }
                 }
 
@@ -218,38 +225,51 @@
                         updName && (node.setName(name));
                         updSkin && (node.skin = skin);
                     } else {
-                        node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", time, flags);
+                        node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", flags);
                         nodesID[id] = node;
                         nodes.push(node);
-                        if (node.isPellet) {
-                            // Node is a pellet - draw cache
-                            var _nCache = document.createElement('canvas');
-                            var pCtx = _nCache.getContext('2d'),
-                                lW = Math.max(node.size * 0.03, 10);
-                            _nCache.width = size * 2;
-                            _nCache.height = size * 2;
-                            pCtx.lineWidth = lW;
-                            pCtx.lineCap = pCtx.lineJoin = "round";
-                            pCtx.fillStyle = node.color;
-                            pCtx.strokeStyle = node.strokeColor;
-
-                            pCtx.beginPath();
-                            pCtx.arc(size, size, size - pCtx.lineWidth, 0, 2 * Math.PI, false);
-                            pCtx.fill();
-                            pCtx.stroke();
-                            pCtx.closePath();
-                            node._meCache = _nCache;
-                            node._meW = _nCache.width / 2;
-                            node._meH = _nCache.height / 2;
-                        }
                     }
+                    node.updateStamp = time;
                 }
 
                 // Dissapear records
                 count = reader.getUint16();
                 for (i = 0; i < count; i++) {
                     killed = reader.getUint32();
-                    if (killed !== 0 && nodesID.hasOwnProperty(killed)) nodesID[killed].destroy();
+                    if (nodesID.hasOwnProperty(killed)) nodesID[killed].destroy(time);
+                }
+
+                // List through cells and if it wasn't updated mark it as pellet
+                count = nodes.length;
+                for (i = 0; i < count; i++) {
+                    node = nodes[i];
+                    if (node.destroyed)
+                        // What's it doing there?
+                        return;
+
+                    if (node.isPellet || node.isVirus || node.isAgitated || node.isEjected) continue;
+                    if (node.updateStamp < time) {
+                        // Node is a pellet - draw cache
+                        var _nCache = document.createElement('canvas');
+                        var pCtx = _nCache.getContext('2d'),
+                            lW = node.nSize > 20 ? Math.max(node.nSize * 0.03, 10) : 0, sz;
+                        _nCache.width = (sz = node.nSize + lW);
+                        _nCache.height = sz;
+                        pCtx.lineWidth = lW;
+                        pCtx.lineCap = pCtx.lineJoin = "round";
+                        pCtx.fillStyle = node.color;
+                        pCtx.strokeStyle = node.strokeColor;
+
+                        pCtx.beginPath();
+                        pCtx.arc((sz /= 2), sz, node.nSize / 2 - lW, 0, 2 * Math.PI, false);
+                        pCtx.fill();
+                        pCtx.stroke();
+                        pCtx.closePath();
+                        node._meCache = _nCache;
+                        node._meW = _nCache.width / 2;
+                        node._meH = _nCache.height / 2;
+                        node.isPellet = true;
+                    }
                 }
                 break;
             case 0x11:
@@ -314,6 +334,7 @@
         myNodes = [],
         leaderboard = [],
         leaderboardType = -1, // -1 - Not set, 48 - Text list, 49 - FFA list, 50 - Pie chart
+        leaderboardCanvas = null,
         centerX = 0,
         centerY = 0,
         _cX = 0, _cY = 0, _cZoom = 1, // Spectate packet X, Y & zoom
@@ -386,9 +407,6 @@
                 wHandle.localStorage.setItem("checkbox-" + id, value);
             });
         });
-        if (null == wHandle.localStorage.AB8) {
-            wHandle.localStorage.AB8 = ~~(100 * Math.random());
-        }
     }
 
     // Load known skin list
@@ -551,16 +569,65 @@
     }
 
     function drawLeaderboard() {
+        if (leaderboardType === -1) return;
+        if (!leaderboardCanvas) leaderboardCanvas = document.createElement('canvas');
 
+        var ctx = leaderboardCanvas.getContext('2d'),
+            l = leaderboard.length;
+            ctxScale = Math.min(0.22 * mainCanvas.height, Math.min(200, .3 * mainCanvas.width)) * 0.005,
+            width = leaderboardType !== 50 ? 60 + 24 * l : 240,
+            i = 0;
+
+        leaderboardCanvas.width = 200 * ctxScale;
+        leaderboardCanvas.height = width * ctxScale;
+
+        ctx.scale(ctxScale, ctxScale);
+        ctx.globalAlpha = .4;
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, 200, width);
+
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "30px Ubuntu";
+        ctx.fillText("Leaderboard", 100 - ctx.measureText("Leaderboard").width / 2, 40);
+
+        if (leaderboardType === 0x32) {
+            // Pie chart
+            ctx.beginPath();
+            var last = 0;
+            for ( ; i < l; i++) {
+                ctx.fillStyle = teamColors[i];
+                ctx.moveTo(100, 140);
+                ctx.arc(100, 140, 80, last, (last += leaderboard[i] * PI_2), false);
+                ctx.fill();
+            }
+            ctx.closePath();
+        } else {
+            // Text-based
+            var o, me = false, w, start;
+            ctx.font = "20px Ubuntu";
+            for ( ; i < l; i++) {
+                o = leaderboard[i];
+                if (leaderboardType === 0x31) {
+                    me = o.me;
+                    o = o.name;
+                }
+                me ? ctx.fillStyle = "#FFAAAA" : ctx.fillStyle = "#FFFFFF";
+                o = (i + 1) + ". " + o;
+                var start = ((w = ctx.measureText(o).width) > 200) ? 2 : 100 - w * 0.5;
+                ctx.fillText(o, start, 70 + 24 * i);
+            }
+        }
     }
 
     function drawGame() {
         var dr = Date.now(), passed;
-        fps = 1000 / (passed = dr - lastDrawTime);
+        fps += (1000 / (passed = dr - lastDrawTime) - fps) * 0.1;
         lastDrawTime = dr;
 
         mainCanvas = document.getElementById('canvas');
         mainCtx = mainCanvas.getContext('2d');
+
         var cW = mainCanvas.width = wHandle.innerWidth,
             cH = mainCanvas.height = wHandle.innerHeight,
             cW2 = cW / 2,
@@ -577,13 +644,8 @@
                 n = nodesID[myNodes[i]];
                 if (!n) continue;
                 viewZoom += n.size;
-                centerX += n.x;
-                centerY += n.y;
-                rl++;
-            }
-            if (rl !== 0) {
-                centerX /= rl;
-                centerY /= rl;
+                centerX += n.x / l;
+                centerY += n.y / l;
             }
             viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
             newDrawZoom = viewZoom * viewMult;
@@ -594,8 +656,6 @@
         }
         drawZoom += (newDrawZoom * mouseZoom - drawZoom) * 0.11;
 
-        // mainCtx.clearRect(0, 0, cW, cH);
-
         drawing = true;
 
         mainCtx.save();
@@ -603,13 +663,9 @@
         mainCtx.fillRect(0, 0, cW, cH);
         mainCtx.restore();
 
-        mainCtx.save();
-        mainCtx.font = "20px Ubuntu";
-        mainCtx.fillStyle = settings.darkTheme ? "#F2FBFF" : "#111111";
-        mainCtx.fillText(~~fps + " FPS", 2, 22);
-        mainCtx.restore();
+        var tx, ty, z1;
 
-        mainCtx.translate(cW2 - centerX * drawZoom, cH2 - centerY * drawZoom);
+        mainCtx.translate((tx = cW2 - centerX * drawZoom), (ty = cH2 - centerY * drawZoom));
         mainCtx.scale(drawZoom, drawZoom);
 
         var a = nodes.concat(deadNodes);
@@ -618,8 +674,20 @@
         l = a.length;
         for (i = 0; i < l; i++) {
             n = a[i];
-            n.draw(lastDrawTime, mainCtx);
+            n.draw(dr);
         }
+
+        mainCtx.scale((z1 = 1 / drawZoom), z1);
+        mainCtx.translate(-tx, -ty);
+
+        mainCtx.save();
+        mainCtx.font = "20px Ubuntu";
+        mainCtx.fillStyle = settings.darkTheme ? "#F2FBFF" : "#111111";
+        mainCtx.fillText(~~fps + " FPS", 2, 22);
+        mainCtx.restore();
+
+        leaderboardCanvas && mainCtx.drawImage(leaderboardCanvas, cW - leaderboardCanvas.width - 10, 10);
+
         drawing = false;
     }
 
@@ -638,7 +706,7 @@
         drawGame();
     }
 
-    function Cell(id, x, y, size, name, color, skin, tick, flags) {
+    function Cell(id, x, y, size, name, color, skin, flags) {
         this.id = id;
         this.x = this.nx = x;
         this.y = this.ny = y;
@@ -646,13 +714,11 @@
         this.setName(name, 1);
         this.setColor(color);
         this.skin = skin;
-        this.timeStamp = tick;
         this.nUpd = 0;
         if (flags) {
             this.isEjected = !!(flags & 0x20);
             this.isVirus = !!(flags & 0x01);
             this.isAgitated = !!(flags & 0x10);
-            this.isPellet = !!(flags & 0x40);
         }
     }
 
@@ -665,14 +731,17 @@
         name: 0,
         color: "#FFFFFF",
         skin: "",
+        updateStamp: -1,
+        updateCount: 1,
         deathStamp: -1,
-        timeStamp: -1,
+        appStamp: -1,
         _ts: -1,
         nx: 0,
         ny: 0,
         nSize: 0,
         isEjected: false,
         isPellet: false,
+        isPlayer: false,
         isVirus: false,
         isAgitated: false,
         strokeColor: "#AAAAAA",
@@ -683,14 +752,15 @@
         _nameTxt: null,
         _massTxt: null,
         updateAppearance: function(time) {
-            var dt = Math.min(Math.max((time - this.timeStamp) / 120, 0), 1);
+            if (this.destroyed)
+                if (time - this.deathStamp > 200 || this.size < 4) {
+                    // Fully remove
+                    deadNodes.remove(this);
+                }
+            var dt = Math.min(Math.max((time - this.appStamp) / 120, 0), 1);
             this.x += (this.nx - this.x) * dt;
             this.y += (this.ny - this.y) * dt;
             this.size += (this.nSize - this.size) * dt;
-            if (this.deathStamp)
-                if (time - this.deathStamp > 1000 || this.size < 10)
-                    // Fully remove
-                    deadNodes.remove(this);
         },
         setName: function(name) {
             this._nameChanged = true;
@@ -716,33 +786,31 @@
                 showESCOverlay();
             }
             deadNodes.push(this);
+            this.deathStamp = time;
             this.destroyed = true;
         },
-        shouldRender: function() {
-
-        },
-        draw: function(time, ctx) {
+        draw: function(time) {
             this.updateAppearance(time);
-            this.timeStamp = time;
+            this.appStamp = time;
+            mainCtx.save();
+
             if (this._meCache) {
                 // Cached drawing exists - use it
-                ctx.drawImage(this._meCache, this.x - this._meW, this.y - this._meH);
+                mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
             } else {
-                ctx.save();
-                ctx.lineWidth = this.isEjected ? 0 : Math.max(this.size * 0.03, 10);
-                ctx.lineCap = "round";
-                ctx.lineJoin = this.isVirus ? "miter" : "round";
-                ctx.fillStyle = this.color;
-                ctx.strokeStyle = this.strokeColor;
+                mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * 0.03, 10) : 0;
+                mainCtx.lineCap = "round";
+                mainCtx.lineJoin = this.isVirus ? "miter" : "round";
+                mainCtx.fillStyle = this.color;
+                mainCtx.strokeStyle = this.strokeColor;
 
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size - ctx.lineWidth * 0.5, 0, 2 * Math.PI, false);
-                ctx.fill();
-                ctx.stroke();
-                ctx.closePath();
-
-                ctx.restore();
+                mainCtx.beginPath();
+                mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * 0.5 + 1, 0, PI_2, false);
+                mainCtx.fill();
+                mainCtx.stroke();
+                mainCtx.closePath();
             }
+            mainCtx.restore();
         }
     };
 
