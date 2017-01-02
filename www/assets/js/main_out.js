@@ -179,17 +179,7 @@
                 for (var i = 0; i < count; i++) {
                     killer = nodesID[reader.getUint32()];
                     killed = nodesID[reader.getUint32()];
-                    if (killed != null) {
-                        if (killer != null) {
-                            killed.nx = killer.nx;
-                            killed.ny = killer.ny;
-                            killed.nSize = 0;
-                        } else {
-                            // Can't do animation without killer
-                            killed.destroy();
-                            deadNodes.remove(killed);
-                        }
-                    }
+                    killed.killer = killer;
                 }
 
                 // Node update records
@@ -253,7 +243,7 @@
                         // Node is a pellet - draw cache
                         var _nCache = document.createElement('canvas');
                         var pCtx = _nCache.getContext('2d'),
-                            lW = node.nSize > 20 ? Math.max(node.nSize * 0.03, 10) : 0, sz;
+                            lW = node.nSize > 20 ? Math.max(node.nSize * 0.01, 10) : 0, sz;
                         _nCache.width = (sz = node.nSize + lW);
                         _nCache.height = sz;
                         pCtx.lineWidth = lW;
@@ -623,13 +613,37 @@
         }
     }
 
+    function drawGrid() {
+        mainCtx.save();
+        mainCtx.strokeStyle = settings.darkTheme ? "#AAAAAA" : "#000000";
+        mainCtx.globalAlpha = .2;
+        var step = 50,
+            cW = mainCanvas.width / drawZoom + .5, cH = mainCanvas.height / drawZoom + .5,
+            startLeft = (-centerX + cW / 2) % step + .5,
+            startTop = (-centerY + cH / 2) % step + .5,
+            i = startLeft;
+
+        mainCtx.scale(drawZoom, drawZoom);
+
+        // Left -> Right
+        for ( ; i < cW; i += step) {
+            mainCtx.moveTo(i, -.5);
+            mainCtx.lineTo(i, cH);
+        }
+
+        // Top -> Bottom
+        for (i = startTop; i < cH; i += step) {
+            mainCtx.moveTo(-.5, i);
+            mainCtx.lineTo(cW, i);
+        }
+        mainCtx.stroke();
+        mainCtx.restore();
+    }
+
     function drawGame() {
         var dr = Date.now(), passed;
-        fps += (1000 / (passed = dr - lastDrawTime) - fps) * 0.1;
+        fps += (1000 / (passed = dr - lastDrawTime) - fps) * .1;
         lastDrawTime = dr;
-
-        mainCanvas = document.getElementById('canvas');
-        mainCtx = mainCanvas.getContext('2d');
 
         var cW = mainCanvas.width = wHandle.innerWidth,
             cH = mainCanvas.height = wHandle.innerHeight,
@@ -641,30 +655,32 @@
 
         // Zoom and position update
         if (l > 0) {
-            _cX = _cY = 0;
+            var ncX = 0,
+                ncY = 0;
             var rl = 0;
             for (i = 0; i < l; i++) {
                 n = nodesID[myNodes[i]];
                 if (!n) continue;
                 viewZoom += n.size;
-                _cX += n.x / l;
-                _cY += n.y / l;
+                ncX += n.x;
+                ncY += n.y;
+                rl++;
             }
-            centerX += (_cX - centerX) * 0.9;
-            centerY += (_cY - centerY) * 0.9;
-            viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
-            newDrawZoom = viewZoom * viewMult;
+            if (rl > 0) {
+                ncX /= rl;
+                ncY /= rl;
+                centerX += (ncX - centerX) * .9;
+                centerY += (ncY - centerY) * .9;
+                viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
+                newDrawZoom = viewZoom * viewMult;
+            }
         } else {
-            centerX += (_cX - centerX) * 0.11;
-            centerY += (_cY - centerY) * 0.11;
+            centerX += (_cX - centerX) * .02;
+            centerY += (_cY - centerY) * .02;
             newDrawZoom = _cZoom * viewMult;
         }
-        drawZoom += (newDrawZoom * mouseZoom - drawZoom) * 0.11;
-
+        drawZoom += (newDrawZoom * mouseZoom - drawZoom) * .11;
         drawing = true;
-
-        // Anti-aliasing
-        mainCtx.imageSmoothingEnabled = true;
 
         // Background
         mainCtx.save();
@@ -674,8 +690,11 @@
 
         var tx, ty, z1;
 
+        // Grid
+        drawGrid();
+
         // Scale & translate for cell drawing
-        mainCtx.translate((tx = cW2 - centerX * drawZoom - .5), (ty = cH2 - centerY * drawZoom - .5));
+        mainCtx.translate((tx = cW2 - centerX * drawZoom + .5), (ty = cH2 - centerY * drawZoom + .5));
         mainCtx.scale(drawZoom, drawZoom);
 
         var a = nodes.concat(deadNodes);
@@ -753,6 +772,7 @@
         nx: 0,
         ny: 0,
         nSize: 0,
+        killer: null,
         isEjected: false,
         isPellet: false,
         notPellet: false,
@@ -767,11 +787,16 @@
         _massTxt: null,
         updateAppearance: function(time) {
             if (this.destroyed)
-                if (time - this.deathStamp > 200 || this.size < 4) {
+                if (time - this.deathStamp > 200 || !this.killer || this.size < 4) {
                     // Fully remove
                     deadNodes.remove(this);
                 }
             var dt = Math.min(Math.max((time - this.appStamp) / 120, 0), 1);
+            if (this.killer) {
+                this.nx = this.killer.x;
+                this.ny = this.killer.y;
+                this.nSize = 0;
+            }
             this.x += (this.nx - this.x) * dt;
             this.y += (this.ny - this.y) * dt;
             this.size += (this.nSize - this.size) * dt;
@@ -810,13 +835,13 @@
         draw: function(time) {
             this.updateAppearance(time);
             this.appStamp = time;
-            mainCtx.save();
 
             if (this._meCache) {
                 // Cached drawing exists - use it
                 mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
             } else {
-                mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * 0.03, 10) : 0;
+                mainCtx.save();
+                mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0;
                 mainCtx.lineCap = "round";
                 mainCtx.lineJoin = this.isVirus ? "miter" : "round";
                 mainCtx.fillStyle = this.color;
@@ -828,31 +853,31 @@
                 mainCtx.stroke();
                 mainCtx.closePath();
 
-                // Draw name & mass
+                // Text drawing
                 if (this.notPellet) {
                     if (!this._nameTxt) {
                         if (this.name !== "") this._nameTxt = new Text(this.name, this._nSize, "#FFFFFF", true, "#000000");
-                        this._massTxt = new Text(~~(this.size * this.size * 0.01), ~~(this._nSize * 0.5), "#FFFFFF", true, "#000000");
+                        this._massTxt = new Text(~~(this.size * this.size * .01), ~~(this._nSize * .5), "#FFFFFF", true, "#000000");
                     } else {
                         this._nameTxt.setSize(this._nSize);
-                        this._massTxt.setSize(~~(this._nSize * 0.5));
-                        this._massTxt.setValue(~~(this.size * this.size * 0.01));
+                        this._massTxt.setSize(~~(this._nSize * .5));
+                        this._massTxt.setValue(~~(this.size * this.size * .01));
                     }
                     var nameDraw = settings.showNames && this.name !== "";
                     if (nameDraw) this._nameTxt.draw(this.x, this.y);
 
                     if (settings.showMass && (this.playerOwned || myNodes.length === 0)) {
                         if (nameDraw)
-                            this._massTxt.draw(this.x, this.y + this.size * 0.2);
+                            this._massTxt.draw(this.x, this.y + Math.max(this.size * .2, this._nameTxt._c.height * .5));
                         else
                             this._massTxt.draw(this.x, this.y);
                     }
                 }
+                mainCtx.restore();
             }
-            mainCtx.restore();
         },
         drawShape: function() {
-
+            var simple = !(this.isVirus || this.isAgitated) || this.isEjected;
         }
     };
 
@@ -863,6 +888,7 @@
         this.setColor(color);
         this.setSize(size);
         this.setValue(value);
+        this._redraw = true;
     }
     Text.prototype = {
         value: "",
@@ -870,9 +896,10 @@
         color: "#FFFFFF",
         stroke: false,
         strokeColor: "#000000",
+        first: true,
+        _redraw: true,
         _c: null,
         _t: null,
-        _redraw: true,
         setValue: function(a) {
             if (this.value !== a) {
                 this._redraw = true;
@@ -888,6 +915,7 @@
         setColor: function(a) {
             if (this.color !== a) {
                 this._redraw = true;
+                this.color = a;
             }
         },
         setStroke: function(a) {
@@ -897,33 +925,37 @@
             }
         },
         setStrokeColor: function(a) {
-            if (this.StrokeColor !== a) {
+            if (this.strokeColor !== a) {
                 this._redraw = true;
+                this.strokeColor = a;
             }
         },
         draw: function(x, y) {
             var canvas = this._c,
                 scale = this.scale;
-            if (this._redraw) {
-                this._redraw = false;
+            if (this._redraw || this.first) {
+                this._redraw = this.first = false;
                 var ctx = this._t,
                     value = this.value,
                     size = this.size,
                     stroke = this.stroke,
                     color = this.color,
-                    strokeColor = this.strokeColor;
+                    strokeColor = this.strokeColor,
+                    lineWidth = size * .1;
 
-                canvas.width = ctx.measureText(value).width + 3;
+                // Why???
+                ctx.font = size + 'px Ubuntu';
+                canvas.width = ctx.measureText(value).width + 3 + lineWidth;
                 canvas.height = size * 1.2;
                 ctx.font = size + 'px Ubuntu';
                 ctx.fillStyle = color;
-                ctx.lineWidth = size * .1;
+                ctx.lineWidth = lineWidth;
                 ctx.strokeStyle = strokeColor;
 
-                stroke && ctx.strokeText(this.value, 0, this.size * .9);
-                ctx.fillText(this.value, 0, this.size * .9);
+                stroke && ctx.strokeText(this.value, (lineWidth *= .5), this.size * .9);
+                ctx.fillText(this.value, lineWidth, this.size * .9);
             }
-            mainCtx.drawImage(canvas, x - canvas.width * .5, y - canvas.height * .5);
+            mainCtx.drawImage(canvas, x - canvas.width * .5 - .5, y - canvas.height * .5 - .5, canvas.width + .5, canvas.height + .5);
         }
     };
 
