@@ -183,8 +183,12 @@
                         if (killer != null) {
                             killed.nx = killer.nx;
                             killed.ny = killer.ny;
+                            killed.nSize = 0;
+                        } else {
+                            // Can't do animation without killer
+                            killed.destroy();
+                            deadNodes.remove(killed);
                         }
-                        killed.nSize = 0;
                     }
                 }
 
@@ -224,12 +228,12 @@
                         updColor && (node.setColor(color));
                         updName && (node.setName(name));
                         updSkin && (node.skin = skin);
+                        node.updateStamp = time;
                     } else {
-                        node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", flags);
+                        node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", time, flags);
                         nodesID[id] = node;
                         nodes.push(node);
                     }
-                    node.updateStamp = time;
                 }
 
                 // Dissapear records
@@ -243,12 +247,9 @@
                 count = nodes.length;
                 for (i = 0; i < count; i++) {
                     node = nodes[i];
-                    if (node.destroyed)
-                        // What's it doing there?
-                        return;
 
-                    if (node.isPellet || node.isVirus || node.isAgitated || node.isEjected) continue;
-                    if (node.updateStamp < time) {
+                    if (node.isPellet || node.notPellet || node.isVirus || node.isAgitated || node.isEjected) continue;
+                    if (node.updateStamp !== time && node.birthStamp !== time) {
                         // Node is a pellet - draw cache
                         var _nCache = document.createElement('canvas');
                         var pCtx = _nCache.getContext('2d'),
@@ -269,7 +270,9 @@
                         node._meW = _nCache.width / 2;
                         node._meH = _nCache.height / 2;
                         node.isPellet = true;
-                    }
+                    } else if (node.updateStamp === time && node.birthStamp !== time)
+                        // Not a pellet
+                        node.notPellet = true;
                 }
                 break;
             case 0x11:
@@ -638,15 +641,17 @@
 
         // Zoom and position update
         if (l > 0) {
-            centerX = centerY = 0;
+            _cX = _cY = 0;
             var rl = 0;
             for (i = 0; i < l; i++) {
                 n = nodesID[myNodes[i]];
                 if (!n) continue;
                 viewZoom += n.size;
-                centerX += n.x / l;
-                centerY += n.y / l;
+                _cX += n.x / l;
+                _cY += n.y / l;
             }
+            centerX += (_cX - centerX) * 0.9;
+            centerY += (_cY - centerY) * 0.9;
             viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
             newDrawZoom = viewZoom * viewMult;
         } else {
@@ -658,6 +663,10 @@
 
         drawing = true;
 
+        // Anti-aliasing
+        mainCtx.imageSmoothingEnabled = true;
+
+        // Background
         mainCtx.save();
         mainCtx.fillStyle = settings.darkTheme ? "#111111" : "#F2FBFF";
         mainCtx.fillRect(0, 0, cW, cH);
@@ -665,7 +674,8 @@
 
         var tx, ty, z1;
 
-        mainCtx.translate((tx = cW2 - centerX * drawZoom), (ty = cH2 - centerY * drawZoom));
+        // Scale & translate for cell drawing
+        mainCtx.translate((tx = cW2 - centerX * drawZoom - .5), (ty = cH2 - centerY * drawZoom - .5));
         mainCtx.scale(drawZoom, drawZoom);
 
         var a = nodes.concat(deadNodes);
@@ -677,6 +687,7 @@
             n.draw(dr);
         }
 
+        // Return back to normal
         mainCtx.scale((z1 = 1 / drawZoom), z1);
         mainCtx.translate(-tx, -ty);
 
@@ -706,7 +717,7 @@
         drawGame();
     }
 
-    function Cell(id, x, y, size, name, color, skin, flags) {
+    function Cell(id, x, y, size, name, color, skin, time, flags) {
         this.id = id;
         this.x = this.nx = x;
         this.y = this.ny = y;
@@ -719,7 +730,10 @@
             this.isEjected = !!(flags & 0x20);
             this.isVirus = !!(flags & 0x01);
             this.isAgitated = !!(flags & 0x10);
+            (this.isEjected || this.isVirus || this.isAgitated) && (this.notPellet = true);
         }
+        this.playerOwned = myNodes.indexOf(id) !== -1;
+        this.birthStamp = this.updateStamp = time;
     }
 
     Cell.prototype = {
@@ -732,7 +746,7 @@
         color: "#FFFFFF",
         skin: "",
         updateStamp: -1,
-        updateCount: 1,
+        birthStamp: -1,
         deathStamp: -1,
         appStamp: -1,
         _ts: -1,
@@ -741,11 +755,11 @@
         nSize: 0,
         isEjected: false,
         isPellet: false,
-        isPlayer: false,
+        notPellet: false,
         isVirus: false,
         isAgitated: false,
         strokeColor: "#AAAAAA",
-        _nameChanged: false,
+        _nSize: 0,
         _meCache: null, // If it's a pellet it'll draw from this cache
         _meW: null,
         _meH: null,
@@ -761,10 +775,14 @@
             this.x += (this.nx - this.x) * dt;
             this.y += (this.ny - this.y) * dt;
             this.size += (this.nSize - this.size) * dt;
+            this._nSize = Math.max(~~(.3 * this.size), 24);
         },
         setName: function(name) {
-            this._nameChanged = true;
+            this._nameTxt && node._nameTxt.setValue(name);
             this.name = name;
+        },
+        getNameSize: function() {
+            return this._nSize;
         },
         setColor: function(color) {
             this.color = color;
@@ -809,8 +827,103 @@
                 mainCtx.fill();
                 mainCtx.stroke();
                 mainCtx.closePath();
+
+                // Draw name & mass
+                if (this.notPellet) {
+                    if (!this._nameTxt) {
+                        if (this.name !== "") this._nameTxt = new Text(this.name, this._nSize, "#FFFFFF", true, "#000000");
+                        this._massTxt = new Text(~~(this.size * this.size * 0.01), ~~(this._nSize * 0.5), "#FFFFFF", true, "#000000");
+                    } else {
+                        this._nameTxt.setSize(this._nSize);
+                        this._massTxt.setSize(~~(this._nSize * 0.5));
+                        this._massTxt.setValue(~~(this.size * this.size * 0.01));
+                    }
+                    var nameDraw = settings.showNames && this.name !== "";
+                    if (nameDraw) this._nameTxt.draw(this.x, this.y);
+
+                    if (settings.showMass && (this.playerOwned || myNodes.length === 0)) {
+                        if (nameDraw)
+                            this._massTxt.draw(this.x, this.y + this.size * 0.2);
+                        else
+                            this._massTxt.draw(this.x, this.y);
+                    }
+                }
             }
             mainCtx.restore();
+        },
+        drawShape: function() {
+
+        }
+    };
+
+    function Text(value, size, color, stroke, strokeColor) {
+        this._t = (this._c = document.createElement('canvas')).getContext('2d');
+        this.setStrokeColor(strokeColor);
+        this.setStroke(stroke);
+        this.setColor(color);
+        this.setSize(size);
+        this.setValue(value);
+    }
+    Text.prototype = {
+        value: "",
+        size: 16,
+        color: "#FFFFFF",
+        stroke: false,
+        strokeColor: "#000000",
+        _c: null,
+        _t: null,
+        _redraw: true,
+        setValue: function(a) {
+            if (this.value !== a) {
+                this._redraw = true;
+                this.value = a;
+            }
+        },
+        setSize: function(a) {
+            if (this.size !== a) {
+                this._redraw = true;
+                this.size = a;
+            }
+        },
+        setColor: function(a) {
+            if (this.color !== a) {
+                this._redraw = true;
+            }
+        },
+        setStroke: function(a) {
+            if (this.stroke !== a) {
+                this._redraw = true;
+                this.stroke = true;
+            }
+        },
+        setStrokeColor: function(a) {
+            if (this.StrokeColor !== a) {
+                this._redraw = true;
+            }
+        },
+        draw: function(x, y) {
+            var canvas = this._c,
+                scale = this.scale;
+            if (this._redraw) {
+                this._redraw = false;
+                var ctx = this._t,
+                    value = this.value,
+                    size = this.size,
+                    stroke = this.stroke,
+                    color = this.color,
+                    strokeColor = this.strokeColor;
+
+                canvas.width = ctx.measureText(value).width + 3;
+                canvas.height = size * 1.2;
+                ctx.font = size + 'px Ubuntu';
+                ctx.fillStyle = color;
+                ctx.lineWidth = size * .1;
+                ctx.strokeStyle = strokeColor;
+
+                stroke && ctx.strokeText(this.value, 0, this.size * .9);
+                ctx.fillText(this.value, 0, this.size * .9);
+            }
+            mainCtx.drawImage(canvas, x - canvas.width * .5, y - canvas.height * .5);
         }
     };
 
