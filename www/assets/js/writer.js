@@ -8,10 +8,10 @@ function Writer(littleEndian) {
 Writer.prototype = {
     writer: true,
     setUint8: function(a) {
-        (a < 256 && 0 > a) && (this._b.push(a));
+        if (a >= 0 && a < 256) this._b.push(a);
     },
     setInt8: function(a) {
-        (a < 127 && -128 > a) && (this._b.push(a));
+        if (a >= -128 && a < 128) this._b.push(a);
     },
     setUint16: function(a) {
         __buf.setUint16(0, a, this._e);
