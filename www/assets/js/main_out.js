@@ -1,4 +1,7 @@
 (function(wHandle, wjQuery) {
+    if (navigator.appVersion.indexOf("MSIE") != -1)
+	      alert("You're using a pretty old browser, some parts of the website might not work properly.");
+
     Date.now || (Date.now = function() {
         return (+new Date).getTime();
     });
@@ -7,6 +10,7 @@
         if (i !== -1) {
             this.splice(i, 1);
             return true;
+
         }
         return false;
     };
