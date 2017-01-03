@@ -99,6 +99,16 @@
         serverName = "Unknown";
         log.info("Connected to " + CONNECT_TO);
         log.debug("HTTPS: " + USE_HTTPS);
+        chatMessages.push({
+            server: false,
+            admin: false,
+            mod: false,
+            nameColor: "#33BB33",
+            name: "Cigar",
+            message: "Connected to " + CONNECT_TO,
+            time: Date.now()
+        });
+        drawChat();
     }
 
     function WsMessage(data) {
@@ -123,6 +133,7 @@
                 nameColor = '#' + nameColor;
                 name = reader.getStringUTF8();
                 message = reader.getStringUTF8();
+                chatAlphaWait += Math.max(2000, 1000 + message.length * 100);
                 chatMessages.push({
                     server: !!(flags & 0x80),
                     admin: !!(flags & 0x40),
@@ -402,6 +413,7 @@
         serverName = "Realm of emptiness", // Given at SetBorder packet
         chatText = "",
         chatMessages = [],
+        chatAlphaWait = 0,
         chatCanvas = null,
         isTyping = false,
         isWindowFocused = true,
@@ -496,7 +508,7 @@
         function handleWheel(event) {
             mouseZoom *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
             1 > mouseZoom && (mouseZoom = 1);
-            mouseZoom > 4 / viewZoom && (mouseZoom = 4 / viewZoom);
+            mouseZoom > 2 / viewZoom && (mouseZoom = 2 / viewZoom);
         }
         // Mouse wheel
         if (/firefox/i.test(navigator.userAgent)) {
@@ -618,10 +630,9 @@
         if (isTyping) return true;
         var now = Date.now(),
             lastMsg = chatMessages.peek(),
-            diff = now - lastMsg.time,
-            waitTime = Math.max(2000, 1000 + lastMsg.message.length * 100);
+            diff = now - lastMsg.time;
 
-        return 1 - Math.min(Math.max((diff - waitTime) * .001, 0), 1);
+        return 1 - Math.min(Math.max((diff - chatAlphaWait) * .001, 0), 1);
     }
 
     function drawChat() {
@@ -638,10 +649,11 @@
 
         if (alpha === 0) {
             chatCanvas = null;
+            chatAlphaWait = 0;
             return;
         }
 
-        while ((l = chatMessages.length) > 8) chatMessages.shift(); // Remove older messages
+        while ((l = chatMessages.length) > 15) chatMessages.shift(); // Remove older messages
 
         chatCanvas.width = 800;
         chatCanvas.height = (l + 1) * 20;
@@ -780,8 +792,8 @@
                 userScore = Math.max(newScore, userScore);
                 ncX /= rl;
                 ncY /= rl;
-                centerX += (ncX - centerX) * .9;
-                centerY += (ncY - centerY) * .9;
+                centerX += (ncX - centerX) * .4;
+                centerY += (ncY - centerY) * .4;
                 viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
                 newDrawZoom = viewZoom * viewMult;
             }
@@ -994,7 +1006,7 @@
                     if (settings.showMass && (this.playerOwned || myNodes.length === 0) && this.size >= 20) {
                         var massDSz = ~~(this._DnameSize * .5);
                         if (nameDraw)
-                            this._massTxt.draw(this.x, this.y + Math.max(this.size * .2, this._nameTxt._c.height * .5), massDSz);
+                            this._massTxt.draw(this.x, this.y + Math.max(this.size * .2, this._nameTxt.height * .5), massDSz);
                         else
                             this._massTxt.draw(this.x, this.y, massDSz);
                     }
@@ -1014,7 +1026,6 @@
         this.setColor(color);
         this.setSize(size);
         this.setValue(value);
-        this._redraw = true;
     }
     Text.prototype = {
         value: "",
@@ -1022,8 +1033,10 @@
         color: "#FFFFFF",
         stroke: false,
         strokeColor: "#000000",
-        first: true,
         _redraw: true,
+        _mZoom: 1,
+        width: 0,
+        height: 0,
         _c: null,
         _t: null,
         setValue: function(a) {
@@ -1058,9 +1071,14 @@
         },
         draw: function(x, y, drawSize) {
             var canvas = this._c,
-                sDiv = drawSize / this.size;
-            if (this._redraw || this.first) {
-                this._redraw = this.first = false;
+                sz = this.size,
+                sDiv = drawSize / sz,
+                cText = 100 / (sz * .5),
+                cMouse = Math.min(mouseZoom, cText);
+
+            if (this._redraw || this._mZoom !== cMouse) {
+                this._redraw = false;
+                this._mZoom = cMouse;
                 var ctx = this._t,
                     value = this.value,
                     size = this.size,
@@ -1071,20 +1089,23 @@
 
                 // Why set font twice???
                 ctx.font = size + 'px Ubuntu';
-                canvas.width = ctx.measureText(value).width + 3 + lineWidth;
-                canvas.height = size * 1.2;
+                canvas.width = (ctx.measureText(value).width + lineWidth) * cMouse + 3;
+                canvas.height = size * 1.2 * cMouse;
                 ctx.font = size + 'px Ubuntu';
                 ctx.fillStyle = color;
                 ctx.lineWidth = lineWidth;
                 ctx.strokeStyle = strokeColor;
 
+                ctx.scale(cMouse, cMouse);
                 stroke && ctx.strokeText(this.value, (lineWidth *= .5), this.size * .9);
                 ctx.fillText(this.value, lineWidth, this.size * .9);
             }
             var cW = canvas.width,
-                cH = canvas.height;
+                cH = canvas.height,
+                cMW = this.width = cW / cMouse * sDiv,
+                cMH = this.height = cH / cMouse * sDiv;
 
-            mainCtx.drawImage(canvas, 0, 0, cW, cH, x - (cW * sDiv) / 2, y - (cH * sDiv) / 2, cW * sDiv, cH * sDiv);
+            mainCtx.drawImage(canvas, 0, 0, cW, cH, x - cMW * .5, y - cMH * .5, cMW, cMH);
         }
     };
 
