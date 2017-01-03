@@ -4,7 +4,7 @@ if (is_ajax()) {
 	if (isset($_POST["action"]) && !empty($_POST["action"])) {
 		$action = $_POST["action"];
 		switch($action) {
-			case "test": test_function(); break;
+			case "getSkins": getSkins(); break;
 		}
 	}
 }
@@ -13,7 +13,7 @@ function is_ajax() {
 	return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
 }
 
-function test_function(){
+function getSkins(){
 	$return = $_POST;
 
 	$images = glob('./skins/*.{png}', GLOB_BRACE);
