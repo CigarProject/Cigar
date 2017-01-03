@@ -67,14 +67,14 @@
                         <a data-toggle="modal" data-target="#inPageModal" onclick="openSkinsList();" class="btn-primary btn btn-info" role="button" style="width: 100%;">Skins Gallery</a>
                     </div>
 
-                    <button type="submit" id="play-btn" onclick="setNick(document.getElementById('nick').value); return false;" class="btn btn-play btn-primary btn-needs-server">Play</button>
+                    <button type="button" id="play-btn" onclick="play(document.getElementById('nick').value); return false;" class="btn btn-play btn-primary btn-needs-server">Play</button>
                     <button onclick="$('#settings, #instructions').toggle(); return false;" class="btn btn-info btn-settings" id="settings-btn"><i class="glyphicon glyphicon-cog"></i></button>
                     <br clear="both" />
                 </div>
 
                 <div id="settings" class="checkbox" style="display:none;">
                     <div class="form-group" id="mainform">
-                        <button id="spectate-btn" onclick="spectate();" style="width: 100%" class="btn btn-warning btn-spectate btn-needs-server">Spectate
+                        <button id="spectate-btn" onclick="spectate(); return false;" style="width: 100%" class="btn btn-warning btn-spectate btn-needs-server">Spectate
                         </button>
                         <br clear="both" />
                     </div>
