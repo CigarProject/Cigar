@@ -1,6 +1,6 @@
 (function(wHandle, wjQuery) {
     if (navigator.appVersion.indexOf("MSIE") != -1)
-	      alert("You're using a pretty old browser, some parts of the website might not work properly.");
+	   alert("You're using a pretty old browser, some parts of the website might not work properly.");
 
     Date.now || (Date.now = function() {
         return (+new Date).getTime();
@@ -10,7 +10,6 @@
         if (i !== -1) {
             this.splice(i, 1);
             return true;
-
         }
         return false;
     };
@@ -68,6 +67,7 @@
         _cX = 0;
         _cY = 0;
         _cZoom = 1;
+        mapCenterSet = false;
         border = BORDER_DEFAULT;
         knownSkins = [];
         loadedSkins = [];
@@ -162,7 +162,8 @@
                 }
                 _cX = (border.right + border.left) / 2;
                 _cY = (border.bottom + border.top) / 2;
-                if (0 === myNodes.length) {
+                if (0 === myNodes.length && !mapCenterSet) {
+                    mapCenterSet = true;
                     centerX = _cX;
                     centerY = _cY;
                 }
@@ -201,6 +202,7 @@
                 count = reader.getUint32();
                 for (i = 0; i < count; ++i)
                     leaderboard.push(reader.getFloat32());
+                drawLeaderboard();
                 break;
             case 0x10:
                 // Update nodes
@@ -277,7 +279,7 @@
                         // Node is a pellet - draw cache
                         var _nCache = document.createElement('canvas');
                         var pCtx = _nCache.getContext('2d'),
-                            lW = node.nSize > 20 ? Math.max(node.nSize * 0.01, 10) : 0, sz;
+                            lW = this.nSize > 20 ? Math.max(this.nSize * .01, 10) : 0, sz;
                         _nCache.width = (sz = node.nSize + lW);
                         _nCache.height = sz;
                         pCtx.lineWidth = lW;
@@ -383,6 +385,7 @@
         centerX = 0,
         centerY = 0,
         _cX = 0, _cY = 0, _cZoom = 1, // Spectate packet X, Y & zoom
+        mapCenterSet = false,
         rawMouseX = 0,
         rawMouseY = 0,
         border = BORDER_DEFAULT,
@@ -900,7 +903,7 @@
         isVirus: false,
         isAgitated: false,
         strokeColor: "#AAAAAA",
-        _nSize: 0,
+        _nameSize: 0,
         _meCache: null, // If it's a pellet it'll draw from this cache
         _meW: null,
         _meH: null,
@@ -921,7 +924,8 @@
             this.x += (this.nx - this.x) * dt;
             this.y += (this.ny - this.y) * dt;
             this.size += (this.nSize - this.size) * dt;
-            this._nSize = Math.max(~~(.3 * this.size), 24);
+            this._nameSize = Math.max(~~(.3 * this.nSize), 24);
+            this._DnameSize = Math.max(~~(.3 * this.size), 24);
         },
         setName: function(name) {
             this._nameTxt && node._nameTxt.setValue(name);
@@ -980,18 +984,19 @@
                         if (this.name !== "") this._nameTxt = new Text(this.name, this._nSize, "#FFFFFF", true, "#000000");
                         this._massTxt = new Text(~~(this.size * this.size * .01), ~~(this._nSize * .5), "#FFFFFF", true, "#000000");
                     } else {
-                        this._nameTxt.setSize(this._nSize);
-                        this._massTxt.setSize(~~(this._nSize * .5));
+                        this._nameTxt.setSize(this._nameSize);
+                        this._massTxt.setSize(~~(this._nameSize * .5));
                         this._massTxt.setValue(~~(this.size * this.size * .01));
                     }
                     var nameDraw = settings.showNames && this.name !== "";
-                    if (nameDraw) this._nameTxt.draw(this.x, this.y);
+                    if (nameDraw) this._nameTxt.draw(this.x, this.y, this._DnameSize);
 
-                    if (settings.showMass && (this.playerOwned || myNodes.length === 0)) {
+                    if (settings.showMass && (this.playerOwned || myNodes.length === 0) && this.size >= 20) {
+                        var massDSz = ~~(this._DnameSize * .5);
                         if (nameDraw)
-                            this._massTxt.draw(this.x, this.y + Math.max(this.size * .2, this._nameTxt._c.height * .5));
+                            this._massTxt.draw(this.x, this.y + Math.max(this.size * .2, this._nameTxt._c.height * .5), massDSz);
                         else
-                            this._massTxt.draw(this.x, this.y);
+                            this._massTxt.draw(this.x, this.y, massDSz);
                     }
                 }
                 mainCtx.restore();
@@ -1051,9 +1056,9 @@
                 this.strokeColor = a;
             }
         },
-        draw: function(x, y) {
+        draw: function(x, y, drawSize) {
             var canvas = this._c,
-                scale = this.scale;
+                sDiv = drawSize / this.size;
             if (this._redraw || this.first) {
                 this._redraw = this.first = false;
                 var ctx = this._t,
@@ -1064,7 +1069,7 @@
                     strokeColor = this.strokeColor,
                     lineWidth = size * .1;
 
-                // Why???
+                // Why set font twice???
                 ctx.font = size + 'px Ubuntu';
                 canvas.width = ctx.measureText(value).width + 3 + lineWidth;
                 canvas.height = size * 1.2;
@@ -1076,7 +1081,10 @@
                 stroke && ctx.strokeText(this.value, (lineWidth *= .5), this.size * .9);
                 ctx.fillText(this.value, lineWidth, this.size * .9);
             }
-            mainCtx.drawImage(canvas, x - canvas.width * .5 - .5, y - canvas.height * .5 - .5, canvas.width + .5, canvas.height + .5);
+            var cW = canvas.width,
+                cH = canvas.height;
+
+            mainCtx.drawImage(canvas, 0, 0, cW, cH, x - (cW * sDiv) / 2, y - (cH * sDiv) / 2, cW * sDiv, cH * sDiv);
         }
     };
 
