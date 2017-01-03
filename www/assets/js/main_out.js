@@ -226,8 +226,9 @@
                 for (var i = 0; i < count; i++) {
                     killer = reader.getUint32();
                     killed = reader.getUint32();
-                    if (!nodesID.hasOwnProperty(killer) || !killed.hasOwnProperty(killed)) continue;
+                    if (!nodesID.hasOwnProperty(killer) || !nodesID.hasOwnProperty(killed)) continue;
                     nodesID[killed].killer = nodesID[killer];
+                    nodesID[killed].destroy();
                 }
 
                 // Node update records
