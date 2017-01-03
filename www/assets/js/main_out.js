@@ -256,8 +256,8 @@
                         color = "#" + color;
                     }
 
-                    if (updName) name = reader.getStringUTF8();
                     if (updSkin) skin = reader.getStringUTF8();
+                    if (updName) name = reader.getStringUTF8();
 
                     if (nodesID.hasOwnProperty(id)) {
                         node = nodesID[id];
@@ -369,6 +369,45 @@
             });
             drawChat();
             return;
+        }
+        if (log.VERBOSITY === 3) {
+            var s = a.split(' '),
+                v = s[0].toLowerCase();
+            if (v[0] === "/") {
+                if (v === "/dev") {
+                    chatMessages.push({
+                        server: false,
+                        admin: false,
+                        mod: false,
+                        nameColor: "#1671CC",
+                        name: "Cigar",
+                        message: "Dev commands",
+                        time: Date.now()
+                    }, {
+                        server: false,
+                        admin: false,
+                        mod: false,
+                        nameColor: "#1671CC",
+                        name: "Cigar",
+                        message: "/connect - connect to some other IP",
+                        time: Date.now()
+                    }, {
+                        server: false,
+                        admin: false,
+                        mod: false,
+                        nameColor: "#1671CC",
+                        name: "Cigar",
+                        message: "/setsetting - Set a graphics option",
+                        time: Date.now()
+                    });
+                } else if (v === "/connect") {
+                    Connect(s[1]);
+                } else if (v === "/setsetting") {
+                    settings[s[2]] = s[3];
+                }
+                drawChat();
+                return;
+            }
         }
         var writer = new Writer();
         writer.setUint8(0x63);
@@ -532,9 +571,7 @@
                         var chattxt = chatBox.value;
                         if (chattxt.length > 0) SendChat(chattxt);
                         chatBox.value = "";
-                    } else if (settings.showChat) {
-                        if (!escOverlay) chatBox.focus();
-                    }
+                    } else if (settings.showChat) chatBox.focus();
                     break;
                 case 32: // space
                     if (isTyping) break;
@@ -735,9 +772,9 @@
         mainCtx.strokeStyle = settings.darkTheme ? "#AAAAAA" : "#000000";
         mainCtx.globalAlpha = .2;
         var step = 50,
-            cW = mainCanvas.width / drawZoom + .5, cH = mainCanvas.height / drawZoom + .5,
-            startLeft = (-centerX + cW / 2) % step + .5,
-            startTop = (-centerY + cH / 2) % step + .5,
+            cW = mainCanvas.width / drawZoom, cH = mainCanvas.height / drawZoom,
+            startLeft = (-centerX + cW * .5) % step,
+            startTop = (-centerY + cH * .5) % step,
             i = startLeft;
 
         mainCtx.scale(drawZoom, drawZoom);
@@ -807,6 +844,9 @@
         drawZoom += (newDrawZoom * mouseZoom - drawZoom) * .11;
         drawing = true;
 
+        mainCtx.imageSmoothingEnabled = true;
+        mainCtx.mozImageSmoothingEnabled = true;
+
         // Background
         mainCtx.save();
         mainCtx.fillStyle = settings.darkTheme ? "#111111" : "#F2FBFF";
@@ -816,7 +856,7 @@
         var tx, ty, z1;
 
         // Grid
-        drawGrid();
+        if (settings.showGrid) drawGrid();
 
         // Scale & translate for cell drawing
         mainCtx.translate((tx = cW2 - centerX * drawZoom + .5), (ty = cH2 - centerY * drawZoom + .5));
@@ -882,7 +922,6 @@
         this.setName(name, 1);
         this.setColor(color);
         this.skin = skin;
-        this.nUpd = 0;
         if (flags) {
             this.isEjected = !!(flags & 0x20);
             this.isVirus = !!(flags & 0x01);
@@ -1033,8 +1072,8 @@
         },
         drawShape: function() {
             var animated = settings.fastRenderMax > drawZoom,
-                jagged = this.isVirus || this.isAgitated,
-                simple = jagged ? false : animated;
+                jagged = this.isVirus,
+                simple = (jagged || this.isAgitated) ? false : animated;
 
             mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0;
             mainCtx.lineCap = "round";
