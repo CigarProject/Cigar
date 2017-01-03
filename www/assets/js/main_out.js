@@ -673,7 +673,7 @@
 
             // Message
             ctx.font = '18px Ubuntu';
-            ctx.fillStyle = "#FFFFFF";
+            ctx.fillStyle = settings.darkTheme ? "#FFFFFF" : "#000000";
             ctx.fillText(" " + msg.message, 2 + fW.width, 20 * (i + 1));
         }
     }
@@ -911,6 +911,7 @@
         ny: 0,
         nSize: 0,
         killer: null,
+        rigidPoints: [],
         isEjected: false,
         isPellet: false,
         notPellet: false,
@@ -971,55 +972,135 @@
             this.deathStamp = time;
             this.destroyed = true;
         },
+        updatePoints: function(animated, jagged) {
+            // Update points
+            var pointAmount = this.size * drawZoom,
+                minPointAmount = jagged ? 90 : (this.isPellet ? 5 : 16),
+                sinAnimation = Math.tan(Math.sin(this.appStamp * .18)),
+                x = this.x,
+                y = this.y,
+                i, p, sz, step;
+
+            this.notPellet && (pointAmount *= .5);
+            this.isEjected && (pointAmount *= .5);
+            pointAmount = ~~Math.max(pointAmount, minPointAmount);
+            jagged && (pointAmount = ~~(pointAmount * .5) * 2);
+
+            var newPoints = [];
+            step = PI_2 / pointAmount;
+            for (i = 0; i < pointAmount; i++) {
+                p = getNextPointDiff(jagged, pointAmount + i, animated, this.rigidPoints[i],
+                    sinAnimation, pointAmount);
+                sz = this.size + p;
+                newPoints.push({
+                    size: sz,
+                    diff: p,
+                    x: x + Math.sin(i * step) * sz,
+                    y: y + Math.cos(i * step) * sz
+                });
+            }
+            this.rigidPoints = newPoints;
+        },
         draw: function(time) {
             this.updateAppearance(time);
             this.appStamp = time;
 
-            if (this._meCache) {
-                // Cached drawing exists - use it
-                mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
-            } else {
-                mainCtx.save();
-                mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0;
-                mainCtx.lineCap = "round";
-                mainCtx.lineJoin = this.isVirus ? "miter" : "round";
-                mainCtx.fillStyle = this.color;
-                mainCtx.strokeStyle = this.strokeColor;
+            mainCtx.save();
+            this.drawShape();
 
+            // Text drawing
+            if (this.notPellet) {
+                if (!this._nameTxt) {
+                    if (this.name !== "") this._nameTxt = new Text(this.name, this._nSize, "#FFFFFF", true, "#000000");
+                    this._massTxt = new Text(~~(this.size * this.size * .01), ~~(this._nSize * .5), "#FFFFFF", true, "#000000");
+                } else {
+                    this._nameTxt.setSize(this._nameSize);
+                    this._massTxt.setSize(~~(this._nameSize * .5));
+                    this._massTxt.setValue(~~(this.size * this.size * .01));
+                }
+                var nameDraw = settings.showNames && this.name !== "";
+                if (nameDraw) this._nameTxt.draw(this.x, this.y, this._DnameSize);
+
+                if (settings.showMass && (this.playerOwned || myNodes.length === 0) && this.size >= 20) {
+                    var massDSz = ~~(this._DnameSize * .5);
+                    if (nameDraw)
+                        this._massTxt.draw(this.x, this.y + Math.max(this.size * .2, this._nameTxt.height * .5), massDSz);
+                    else
+                        this._massTxt.draw(this.x, this.y, massDSz);
+                }
+            }
+            mainCtx.restore();
+        },
+        drawShape: function() {
+            var animated = settings.fastRenderMax > drawZoom,
+                jagged = this.isVirus || this.isAgitated,
+                simple = jagged ? false : animated;
+
+            mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0;
+            mainCtx.lineCap = "round";
+            mainCtx.lineJoin = jagged ? "miter" : "round";
+            mainCtx.fillStyle = this.color;
+            mainCtx.strokeStyle = this.strokeColor;
+
+
+            if (simple) {
+                if (this._meCache)
+                    // Cached drawing exists - use it
+                    mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
+                else {
+                    mainCtx.beginPath();
+                    mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * 0.5 + 1, 0, PI_2, false);
+                    mainCtx.fill();
+                    mainCtx.stroke();
+                    mainCtx.closePath();
+                }
+            } else {
                 mainCtx.beginPath();
-                mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * 0.5 + 1, 0, PI_2, false);
+                animated = !animated;
+                this.updatePoints(animated, jagged);
+                var points = this.rigidPoints;
+
+                mainCtx.moveTo(
+                    points[0].x,
+                    points[0].y
+                );
+
+                for (var i = 1, l = points.length; i < l; i++) {
+                    mainCtx.lineTo(
+                        points[i].x,
+                        points[i].y
+                    );
+                }
+
+                mainCtx.lineTo(
+                    points[0].x,
+                    points[0].y
+                );
                 mainCtx.fill();
                 mainCtx.stroke();
                 mainCtx.closePath();
-
-                // Text drawing
-                if (this.notPellet) {
-                    if (!this._nameTxt) {
-                        if (this.name !== "") this._nameTxt = new Text(this.name, this._nSize, "#FFFFFF", true, "#000000");
-                        this._massTxt = new Text(~~(this.size * this.size * .01), ~~(this._nSize * .5), "#FFFFFF", true, "#000000");
-                    } else {
-                        this._nameTxt.setSize(this._nameSize);
-                        this._massTxt.setSize(~~(this._nameSize * .5));
-                        this._massTxt.setValue(~~(this.size * this.size * .01));
-                    }
-                    var nameDraw = settings.showNames && this.name !== "";
-                    if (nameDraw) this._nameTxt.draw(this.x, this.y, this._DnameSize);
-
-                    if (settings.showMass && (this.playerOwned || myNodes.length === 0) && this.size >= 20) {
-                        var massDSz = ~~(this._DnameSize * .5);
-                        if (nameDraw)
-                            this._massTxt.draw(this.x, this.y + Math.max(this.size * .2, this._nameTxt.height * .5), massDSz);
-                        else
-                            this._massTxt.draw(this.x, this.y, massDSz);
-                    }
-                }
-                mainCtx.restore();
             }
-        },
-        drawShape: function() {
-            var simple = !(this.isVirus || this.isAgitated) || this.isEjected;
         }
     };
+    var sent = false;
+
+    function getNextPointDiff(jagged, index, animated, lastPoint, sinAnimation, pointAmount) {
+        // Increased zoom makes the animation very rough
+        var zDiv = drawZoom * 1.7;
+        if (jagged) {
+            // Viruses with more than 90 points have edges sharper than vanilla
+            // (Vanilla doesn't draw that much points but whatever)
+            var m = Math.min(90 / pointAmount, 1),
+                diff = index % 2 === 0 ? -4 * m : 4 * m;
+            if (!animated) return diff;
+            if (!lastPoint) return diff + sinAnimation * (animated ? Math.random() - .5 : 0);
+            return Math.min(Math.max(lastPoint.diff - (sinAnimation * (Math.random() - .5)), (diff / zDiv) - .5), (diff / zDiv) + .5);
+        }
+        // Non-virus point animation
+        if (!lastPoint) return animated ? 2 * (Math.random() - .5) : 0;
+        if (!animated) return lastPoint.diff;
+        return Math.min(Math.max(lastPoint.diff - (sinAnimation * (Math.random() - .5)), -.8 / zDiv), .8 / zDiv);
+    }
 
     function Text(value, size, color, stroke, strokeColor) {
         this._t = (this._c = document.createElement('canvas')).getContext('2d');
