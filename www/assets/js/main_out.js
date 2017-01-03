@@ -224,10 +224,10 @@
                 // Consume records
                 count = reader.getUint16();
                 for (var i = 0; i < count; i++) {
-                    killer = nodesID[reader.getUint32()];
-                    killed = nodesID[reader.getUint32()];
-                    if (!killer) continue;
-                    killed.killer = killer;
+                    killer = reader.getUint32();
+                    killed = reader.getUint32();
+                    if (!nodesID.hasOwnProperty(killer) || !killed.hasOwnProperty(killed)) continue;
+                    nodesID[killed].killer = nodesID[killer];
                 }
 
                 // Node update records
