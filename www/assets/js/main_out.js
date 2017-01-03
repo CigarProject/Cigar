@@ -226,6 +226,7 @@
                 for (var i = 0; i < count; i++) {
                     killer = nodesID[reader.getUint32()];
                     killed = nodesID[reader.getUint32()];
+                    if (!killer) continue;
                     killed.killer = killer;
                 }
 
@@ -1073,7 +1074,7 @@
             var canvas = this._c,
                 sz = this.size,
                 sDiv = drawSize / sz,
-                cText = 100 / (sz * .5),
+                cText = 100 / sz,
                 cMouse = Math.min(mouseZoom, cText);
 
             if (this._redraw || this._mZoom !== cMouse) {
