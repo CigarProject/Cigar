@@ -10,6 +10,9 @@
         }
         return false;
     };
+    Array.prototype.peek = function() {
+        return this[this.length - 1];
+    };
     var CONNECT_TO,
         SKIN_URL = "./skins/",
         USE_HTTPS = "https:" == wHandle.location.protocol,
@@ -55,6 +58,7 @@
         deadNodes = [];
         leaderboard = [];
         leaderboardType = "none";
+        userScore = 0;
         centerX = 0;
         centerY = 0;
         _cX = 0;
@@ -104,7 +108,27 @@
                 break;
             case 0x63:
                 // Chat message
-                // Unimplemented
+                var flags = reader.getUint8(),
+                    name, message, nameColor;
+
+                var r = reader.getUint8(),
+                    g = reader.getUint8(),
+                    b = reader.getUint8(),
+                    nameColor = (r << 16 | g << 8 | b).toString(16);
+                while (nameColor.length < 6) nameColor = '0' + nameColor;
+                nameColor = '#' + nameColor;
+                name = reader.getStringUTF8();
+                message = reader.getStringUTF8();
+                chatMessages.push({
+                    server: !!(flags & 0x80),
+                    admin: !!(flags & 0x40),
+                    mod: !!(flags & 0x20),
+                    nameColor: nameColor,
+                    name: name,
+                    message: message,
+                    time: Date.now()
+                });
+                drawChat();
                 break;
             case 0x12:
                 // Clear all
@@ -131,6 +155,12 @@
                     // Game type and server name is given
                     gameType = reader.getUint32();
                     serverName = reader.getStringUTF8();
+                }
+                _cX = (border.right + border.left) / 2;
+                _cY = (border.bottom + border.top) / 2;
+                if (0 === myNodes.length) {
+                    centerX = _cX;
+                    centerY = _cY;
                 }
                 break;
             // Leaderboard update packets
@@ -277,10 +307,6 @@
         }
     }
 
-    function SendChat(a) {
-        Connect(a);
-    }
-
     function WsError(e) {
         log.warn("Connection error");
         log.debug(e);
@@ -311,6 +337,27 @@
         WsSend(writer);
     }
 
+    function SendChat(a) {
+        if (a.length > 200) {
+            chatMessages.push({
+                server: false,
+                admin: false,
+                mod: false,
+                nameColor: "#FF0000",
+                name: "Cigar",
+                message: "Too large message!",
+                time: Date.now()
+            });
+            drawChat();
+            return;
+        }
+        var writer = new Writer();
+        writer.setUint8(0x63);
+        writer.setUint8(0);
+        writer.setStringUTF8(a);
+        WsSend(writer);
+    }
+
     function SendMouseMove(x, y) {
         var writer = new Writer(true);
         writer.setUint8(0x10);
@@ -328,6 +375,7 @@
         leaderboard = [],
         leaderboardType = -1, // -1 - Not set, 48 - Text list, 49 - FFA list, 50 - Pie chart
         leaderboardCanvas = null,
+        userScore = 0,
         centerX = 0,
         centerY = 0,
         _cX = 0, _cY = 0, _cZoom = 1, // Spectate packet X, Y & zoom
@@ -346,7 +394,8 @@
         gameType = -1; // Given at SetBorder packet
         serverName = "Realm of emptiness", // Given at SetBorder packet
         chatText = "",
-        _sizeChange = false,
+        chatMessages = [],
+        chatCanvas = null,
         isTyping = false,
         isWindowFocused = true,
         mainCanvas = null,
@@ -533,9 +582,11 @@
         }
         chatBox.onblur = function() {
             isTyping = false;
+            drawChat();
         };
         chatBox.onfocus = function() {
             isTyping = true;
+            drawChat();
         };
         mainCanvas.onmousemove = function(event) {
             rawMouseX = event.clientX;
@@ -556,9 +607,54 @@
         showESCOverlay();
     }
 
-    function drawLoop() {
-        drawGame();
-        window.requestAnimationFrame(drawLoop);
+    function getChatAlpha() {
+        if (isTyping) return true;
+        var now = Date.now(),
+            lastMsg = chatMessages.peek(),
+            diff = now - lastMsg.time,
+            waitTime = Math.max(2000, 1000 + lastMsg.message.length * 100);
+
+        return 1 - Math.min(Math.max((diff - waitTime) * .001, 0), 1);
+    }
+
+    function drawChat() {
+        if (!settings.showChat || chatMessages.length === 0) return;
+        if (!chatCanvas) chatCanvas = document.createElement('canvas');
+
+        var ctx = chatCanvas.getContext('2d'),
+            l,
+            now = Date.now(),
+            i = 0, msg,
+            lastMsg = chatMessages.peek(),
+            fW, aW,
+            alpha = getChatAlpha();
+
+        if (alpha === 0) {
+            chatCanvas = null;
+            return;
+        }
+
+        while ((l = chatMessages.length) > 8) chatMessages.shift(); // Remove older messages
+
+        chatCanvas.width = 800;
+        chatCanvas.height = (l + 1) * 20;
+        ctx.globalAlpha = alpha;
+
+        for ( ; i < l; i++) {
+            msg = chatMessages[i];
+
+            // Name
+            ctx.fillStyle = msg.nameColor;
+            ctx.font = '18px Ubuntu';
+            fW = ctx.measureText(msg.name + ":");
+            ctx.font = '18px Ubuntu';
+            ctx.fillText(msg.name + ":", 2, 20 * (i + 1));
+
+            // Message
+            ctx.font = '18px Ubuntu';
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillText(" " + msg.message, 2 + fW.width, 20 * (i + 1));
+        }
     }
 
     function drawLeaderboard() {
@@ -640,6 +736,11 @@
         mainCtx.restore();
     }
 
+    function drawLoop() {
+        drawGame();
+        window.requestAnimationFrame(drawLoop);
+    }
+
     function drawGame() {
         var dr = Date.now(), passed;
         fps += (1000 / (passed = dr - lastDrawTime) - fps) * .1;
@@ -651,22 +752,25 @@
             cH2 = cH / 2,
             newDrawZoom = 0,
             viewMult = viewMultiplier(),
-            i, l = myNodes.length, n;
+            i, l = myNodes.length, n, newScore = 0;
 
-        // Zoom and position update
+        // Zoom, position & score update
         if (l > 0) {
             var ncX = 0,
                 ncY = 0;
             var rl = 0;
+            viewZoom = 0;
             for (i = 0; i < l; i++) {
                 n = nodesID[myNodes[i]];
                 if (!n) continue;
                 viewZoom += n.size;
+                newScore += ~~(n.nSize * n.nSize * .01);
                 ncX += n.x;
                 ncY += n.y;
                 rl++;
             }
             if (rl > 0) {
+                userScore = Math.max(newScore, userScore);
                 ncX /= rl;
                 ncY /= rl;
                 centerX += (ncX - centerX) * .9;
@@ -700,6 +804,7 @@
         var a = nodes.concat(deadNodes);
         a.sort(nodeSort);
 
+        // Draw cells
         l = a.length;
         for (i = 0; i < l; i++) {
             n = a[i];
@@ -711,12 +816,24 @@
         mainCtx.translate(-tx, -ty);
 
         mainCtx.save();
-        mainCtx.font = "20px Ubuntu";
         mainCtx.fillStyle = settings.darkTheme ? "#F2FBFF" : "#111111";
-        mainCtx.fillText(~~fps + " FPS", 2, 22);
+        // Score & FPS drawing
+        if (userScore > 0) {
+            mainCtx.font = "32px Ubuntu";
+            mainCtx.fillText("Score: " + userScore, 1, 34);
+            mainCtx.font = "20px Ubuntu";
+            mainCtx.fillText(~~fps + " FPS", 2, 58);
+        } else {
+            mainCtx.font = "20px Ubuntu";
+            mainCtx.fillText(~~fps + " FPS", 1, 22);
+        }
         mainCtx.restore();
 
         leaderboardCanvas && mainCtx.drawImage(leaderboardCanvas, cW - leaderboardCanvas.width - 10, 10);
+
+        // Chat alpha update
+        if (chatMessages.length > 0) if (getChatAlpha() !== 1) drawChat();
+        chatCanvas && mainCtx.drawImage(chatCanvas, 10, cH - 30 - chatCanvas.height);
 
         drawing = false;
     }
@@ -988,6 +1105,7 @@
     };
     wHandle.spectate = function(a) {
         WsSend(UINT8_CACHE[1]);
+        userScore = 0;
         hideESCOverlay();
     };
     wHandle.play = function(a) {
