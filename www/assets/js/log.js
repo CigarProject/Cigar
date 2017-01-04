@@ -24,4 +24,5 @@ log = {
 		console.debug("[DEBUG]", str);
 	}
 }
+
 var LOAD_START = new Date();
