@@ -37,8 +37,8 @@
             22: new Uint8Array([22]),
             23: new Uint8Array([23]),
             24: new Uint8Array([24]),
+            254: new Uint8Array([254])
         }
-        LOAD_START = +new Date,
         FPS_MAXIMUM = 1000,
         ws = null,
         disconnectDelay = 1;
@@ -50,6 +50,10 @@
         ws.onerror = null;
         ws.onclose = null;
         ws.close();
+        if (serverStatID) {
+            clearInterval(serverStatID);
+            serverStatID = null;
+        }
         ws = null;
         resetGameVariables();
     }
@@ -64,6 +68,8 @@
         userScore = 0;
         centerX = 0;
         centerY = 0;
+        lastMessageTime = -1;
+        latency = Infinity;
         _cX = 0;
         _cY = 0;
         _cZoom = 1;
@@ -75,20 +81,21 @@
         userName = "";
         chatText = "";
         gameType = -1;
-        serverName = "Realm of emptiness";
+        serverVersion = "Unknown";
+        serverStats = null;
         _sizeChange = false;
     }
 
     function Connect(to) {
         if (ws) Disconnect();
         wjQuery("#connecting").show();
-        ws = new WebSocket((USE_HTTPS ? "uws://" : "ws://") + (CONNECT_TO = to));
+        ws = new WebSocket((USE_HTTPS ? "wss://" : "ws://") + (CONNECT_TO = to));
         ws.binaryType = "arraybuffer";
         ws.onopen = WsOpen;
         ws.onmessage = WsMessage;
         ws.onerror = WsError;
         ws.onclose = WsClose;
-        log.info("Connecting to " + to);
+        log.debug("Connecting to " + to);
     }
 
     function WsOpen() {
@@ -96,8 +103,8 @@
         wjQuery("#connecting").hide();
         WsSend(SEND_254);
         WsSend(SEND_255);
-        serverName = "Unknown";
-        log.info("Connected to " + CONNECT_TO);
+        serverVersion = "Unknown";
+        log.debug("Connected to " + CONNECT_TO);
         log.debug("HTTPS: " + USE_HTTPS);
         chatMessages.push({
             server: false,
@@ -108,6 +115,7 @@
             message: "Connected to " + CONNECT_TO,
             time: Date.now()
         });
+        lastMessageTime = Date.now();
         drawChat();
     }
 
@@ -158,7 +166,9 @@
                 break;
             case 0xFE:
                 // Server stat
-                // Unimplemented
+                serverStats = JSON.parse(reader.getStringUTF8());
+                latency = Date.now() - lastMessageTime;
+                drawServerStat();
                 break;
             case 0x40:
                 // Set border
@@ -169,12 +179,20 @@
                 if (data.data.byteLength !== 33) {
                     // Game type and server name is given
                     gameType = reader.getUint32();
-                    serverName = reader.getStringUTF8();
+                    serverVersion = reader.getStringUTF8();
+                    if (/MultiOgar/.test(serverVersion) && !serverStatID) {
+                        serverStatID = setInterval(function() {
+                            // Server stat
+                            lastMessageTime = Date.now();
+                            WsSend(UINT8_CACHE[254]);
+                        }, 2000);
+                    }
                 }
-                _cX = (border.right + border.left) / 2;
-                _cY = (border.bottom + border.top) / 2;
+
                 if (0 === myNodes.length && !mapCenterSet) {
                     mapCenterSet = true;
+                    _cX = (border.right + border.left) / 2;
+                    _cY = (border.bottom + border.top) / 2;
                     centerX = _cX;
                     centerY = _cY;
                 }
@@ -201,7 +219,7 @@
                 for (i = 0; i < count; ++i) {
                     leaderboard.push({
                         me: reader.getUint32(),
-                        name: reader.getStringUTF8()
+                        name: reader.getStringUTF8() || "An unnamed cell"
                     });
                 }
                 drawLeaderboard();
@@ -293,15 +311,15 @@
                         var _nCache = document.createElement('canvas');
                         var pCtx = _nCache.getContext('2d'),
                             lW = this.nSize > 20 ? Math.max(this.nSize * .01, 10) : 0, sz;
-                        _nCache.width = (sz = node.nSize + lW);
-                        _nCache.height = sz;
+                        _nCache.width = (sz = node.nSize + lW) * 2;
+                        _nCache.height = sz * 2;
                         pCtx.lineWidth = lW;
                         pCtx.lineCap = pCtx.lineJoin = "round";
                         pCtx.fillStyle = node.color;
                         pCtx.strokeStyle = node.strokeColor;
 
                         pCtx.beginPath();
-                        pCtx.arc((sz /= 2), sz, node.nSize / 2 - lW, 0, 2 * Math.PI, false);
+                        pCtx.arc(sz, sz, node.nSize - lW, 0, 2 * Math.PI, false);
                         pCtx.fill();
                         pCtx.stroke();
                         pCtx.closePath();
@@ -332,7 +350,7 @@
     }
 
     function WsClose() {
-        log.info("Disconnected");
+        log.debug("Disconnected");
         Disconnect();
         setTimeout(function() {
             if (ws) if (ws.readyState === 1) return;
@@ -348,7 +366,7 @@
     }
 
     function Play(name) {
-        log.info("Playing");
+        log.debug("Playing");
         var writer = new Writer(true);
         writer.setUint8(0x00);
         writer.setStringUTF8(name);
@@ -446,12 +464,14 @@
         drawZoom = 1,  // Scale when drawing
         viewZoom = 1,  // Scale without scroll scaling
         mouseZoom = 1, // Scroll scale
+        lastMessageTime = -1,
+        latency = Infinity,
         drawing = false,
         userName = "",
         // Red Green Blue Yellow Cyan Magenta Orange
         teamColors = ["#FF3333", "#33FF33", "#3333FF", "#FFFF33", "#33FFFF", "#FF33FF", "#FF8833"],
         gameType = -1; // Given at SetBorder packet
-        serverName = "Realm of emptiness", // Given at SetBorder packet
+        serverVersion = "Unknown", // Given at SetBorder packet
         chatText = "",
         chatMessages = [],
         chatAlphaWait = 0,
@@ -464,6 +484,9 @@
         lastDrawTime = Date.now(),
         escOverlay = false,
         fps = 0,
+        serverStatID = null,
+        serverStats = null,
+        serverStatCanvas = null,
         pressed = {
             space: false,
             w: false,
@@ -549,7 +572,7 @@
         function handleWheel(event) {
             mouseZoom *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
             1 > mouseZoom && (mouseZoom = 1);
-            mouseZoom > 2 / viewZoom && (mouseZoom = 2 / viewZoom);
+            mouseZoom > 4 / viewZoom && (mouseZoom = 4 / viewZoom);
         }
         // Mouse wheel
         if (/firefox/i.test(navigator.userAgent)) {
@@ -715,6 +738,39 @@
         }
     }
 
+    function drawServerStat() {
+        if (!serverStats) {
+            serverStatCanvas = null;
+            return;
+        }
+
+        if (!serverStatCanvas) serverStatCanvas = document.createElement('canvas');
+        var ctx = serverStatCanvas.getContext('2d'),
+            w, h = serverStatCanvas.height = 85,
+            a, b, c;
+
+        ctx.font = '14px Ubuntu';
+        serverStatCanvas.width = 4 + Math.max(
+            ctx.measureText(serverStats.name).width,
+            ctx.measureText(serverStats.mode).width,
+            ctx.measureText((a = serverStats.playersTotal + " / " + serverStats.playersLimit + " players")).width,
+            ctx.measureText((b = serverStats.playersAlive + " playing")).width,
+            ctx.measureText((c = serverStats.playersSpect + " spectating")).width
+        );
+        ctx.globalAlpha = .4;
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.font = '14px Ubuntu';
+        ctx.fillStyle = "#FFFFFF";
+        ctx.globalAlpha = 1;
+        ctx.fillText(serverStats.name, 2, 16);
+        ctx.fillText(serverStats.mode, 2, 32);
+        ctx.fillText(a, 2, 48);
+        ctx.fillText(b, 2, 64);
+        ctx.fillText(c, 2, 80);
+    }
+
     function drawLeaderboard() {
         if (leaderboardType === -1) return;
         if (!leaderboardCanvas) leaderboardCanvas = document.createElement('canvas');
@@ -795,14 +851,16 @@
     }
 
     function drawLoop() {
-        drawGame();
+        drawGame(true);
         window.requestAnimationFrame(drawLoop);
     }
 
-    function drawGame() {
-        var dr = Date.now(), passed;
-        fps += (1000 / (passed = dr - lastDrawTime) - fps) * .1;
-        lastDrawTime = dr;
+    function drawGame(normal) {
+        if (normal) {
+            var dr = Date.now(), passed;
+            fps += (1000 / (passed = dr - lastDrawTime) - fps) * .1;
+            lastDrawTime = dr;
+        }
 
         var cW = mainCanvas.width = wHandle.innerWidth,
             cH = mainCanvas.height = wHandle.innerHeight,
@@ -834,18 +892,19 @@
                 centerX += (ncX - centerX) * .4;
                 centerY += (ncY - centerY) * .4;
                 viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
-                newDrawZoom = viewZoom * viewMult;
+                newDrawZoom = viewZoom;
+            } else {
+                // Cells haven't been added yet
+                viewZoom = 1;
+                newDrawZoom = 1;
             }
         } else {
             centerX += (_cX - centerX) * .02;
             centerY += (_cY - centerY) * .02;
-            newDrawZoom = _cZoom * viewMult;
+            newDrawZoom = _cZoom;
         }
-        drawZoom += (newDrawZoom * mouseZoom - drawZoom) * .11;
+        drawZoom += (newDrawZoom * viewMult * mouseZoom - drawZoom) * .11;
         drawing = true;
-
-        mainCtx.imageSmoothingEnabled = true;
-        mainCtx.mozImageSmoothingEnabled = true;
 
         // Background
         mainCtx.save();
@@ -881,15 +940,16 @@
         // Score & FPS drawing
         if (userScore > 0) {
             mainCtx.font = "32px Ubuntu";
-            mainCtx.fillText("Score: " + userScore, 1, 34);
+            mainCtx.fillText("Score: " + userScore, 2, 34);
             mainCtx.font = "20px Ubuntu";
-            mainCtx.fillText(~~fps + " FPS", 2, 58);
+            mainCtx.fillText(~~fps + " FPS, " + latency + " ping", 2, 58);
+            serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60);
         } else {
             mainCtx.font = "20px Ubuntu";
-            mainCtx.fillText(~~fps + " FPS", 1, 22);
+            mainCtx.fillText(~~fps + " FPS, " + latency + " ping", 2, 22);
+            serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24);
         }
         mainCtx.restore();
-
         leaderboardCanvas && mainCtx.drawImage(leaderboardCanvas, cW - leaderboardCanvas.width - 10, 10);
 
         // Chat alpha update
@@ -897,6 +957,8 @@
         chatCanvas && mainCtx.drawImage(chatCanvas, 10, cH - 30 - chatCanvas.height);
 
         drawing = false;
+
+        collectTextGarbage();
     }
 
     function nodeSort(a, b) {
@@ -911,7 +973,6 @@
         window.scrollTo(0, 0);
         mainCanvas.width = wHandle.innerWidth;
         mainCanvas.height = wHandle.innerHeight;
-        drawGame();
     }
 
     function Cell(id, x, y, size, name, color, skin, time, flags) {
@@ -928,7 +989,6 @@
             this.isAgitated = !!(flags & 0x10);
             (this.isEjected || this.isVirus || this.isAgitated) && (this.notPellet = true);
         }
-        this.playerOwned = myNodes.indexOf(id) !== -1;
         this.birthStamp = this.updateStamp = time;
     }
 
@@ -963,13 +1023,12 @@
         _meH: null,
         _nameTxt: null,
         _massTxt: null,
-        updateAppearance: function(time) {
+        updateAppearance: function(time, dt) {
             if (this.destroyed)
                 if (time - this.deathStamp > 200 || !this.killer || this.size < 4) {
                     // Fully remove
                     deadNodes.remove(this);
                 }
-            var dt = Math.min(Math.max((time - this.appStamp) / 120, 0), 1);
             if (this.killer) {
                 this.nx = this.killer.x;
                 this.ny = this.killer.y;
@@ -978,11 +1037,9 @@
             this.x += (this.nx - this.x) * dt;
             this.y += (this.ny - this.y) * dt;
             this.size += (this.nSize - this.size) * dt;
-            this._nameSize = Math.max(~~(.3 * this.nSize), 24);
-            this._DnameSize = Math.max(~~(.3 * this.size), 24);
+            this._nameSize = ~~(Math.max(~~(.3 * this.size), 24) / 4) * 4;
         },
         setName: function(name) {
-            this._nameTxt && node._nameTxt.setValue(name);
             this.name = name;
         },
         getNameSize: function() {
@@ -1005,75 +1062,83 @@
                 _cX = centerX;
                 _cY = centerY;
                 _cZoom = viewZoom;
+                userScore = 0;
                 showESCOverlay();
             }
             deadNodes.push(this);
             this.deathStamp = time;
             this.destroyed = true;
         },
-        updatePoints: function(animated, jagged) {
+        updatePoints: function(animated, jagged, dt) {
             // Update points
-            var pointAmount = this.size * drawZoom,
+            var pointAmount = jagged ? (this.size * .9) : this.size * drawZoom,
                 minPointAmount = jagged ? 90 : (this.isPellet ? 5 : 16),
-                sinAnimation = Math.tan(Math.sin(this.appStamp * .18)),
                 x = this.x,
                 y = this.y,
-                i, p, sz, step;
+                i = 0, p, sz, step, pt, avg;
 
             this.notPellet && (pointAmount *= .5);
             this.isEjected && (pointAmount *= .5);
-            pointAmount = ~~Math.max(pointAmount, minPointAmount);
+            pointAmount = Math.max(~~pointAmount, minPointAmount);
             jagged && (pointAmount = ~~(pointAmount * .5) * 2);
 
             var newPoints = [];
-            step = PI_2 / pointAmount;
-            for (i = 0; i < pointAmount; i++) {
-                p = getNextPointDiff(jagged, pointAmount + i, animated, this.rigidPoints[i],
-                    sinAnimation, pointAmount);
+            for ( ; i < pointAmount; i++) {
+                var nDiff;
+                if (this.rigidPoints[i] && animated) {
+                    // Animate the point
+                    pt = this.rigidPoints[i];
+                    nDiff = pt.newDiff;
+                    p = pt.diff + (nDiff - pt.diff) * dt;
+                    if (toleranceCompare(p, nDiff, .05)) nDiff = getNextDiff(jagged, i, pointAmount, animated);
+                } else if (animated) {
+                    // New point
+                    nDiff = getNextDiff(jagged, i, pointAmount, animated);
+                    p = 0;
+                } else {
+                    // Non-animated point
+                    p = nDiff = getNextDiff(jagged, i, pointAmount, animated);
+                }
                 sz = this.size + p;
+                step = PI_2 / pointAmount;
+
                 newPoints.push({
                     size: sz,
                     diff: p,
+                    newDiff: nDiff,
                     x: x + Math.sin(i * step) * sz,
                     y: y + Math.cos(i * step) * sz
                 });
             }
+
             this.rigidPoints = newPoints;
         },
         draw: function(time) {
-            this.updateAppearance(time);
+            var dt = Math.min(Math.max((time - this.appStamp) / 120, 0), 1);
+            this.updateAppearance(time, dt);
             this.appStamp = time;
 
             mainCtx.save();
-            this.drawShape();
+            this.drawShape(dt);
 
             // Text drawing
             if (this.notPellet) {
-                if (!this._nameTxt) {
-                    if (this.name !== "") this._nameTxt = new Text(this.name, this._nSize, "#FFFFFF", true, "#000000");
-                    this._massTxt = new Text(~~(this.size * this.size * .01), ~~(this._nSize * .5), "#FFFFFF", true, "#000000");
-                } else {
-                    this._nameTxt.setSize(this._nameSize);
-                    this._massTxt.setSize(~~(this._nameSize * .5));
-                    this._massTxt.setValue(~~(this.size * this.size * .01));
-                }
-                var nameDraw = settings.showNames && this.name !== "";
-                if (nameDraw) this._nameTxt.draw(this.x, this.y, this._DnameSize);
+                var nameDraw = settings.showNames && this.name !== "" && !this.isVirus;
+                if (nameDraw) drawText(this.x, this.y, this.name, this._nameSize, "#FFFFFF", true, "#000000");
 
-                if (settings.showMass && (this.playerOwned || myNodes.length === 0) && this.size >= 20) {
-                    var massDSz = ~~(this._DnameSize * .5);
+                if (settings.showMass && (myNodes.indexOf(this.id) !== -1 || myNodes.length === 0) && this.size >= 20) {
+                    var text = ~~(this.size * this.size * .01);
                     if (nameDraw)
-                        this._massTxt.draw(this.x, this.y + Math.max(this.size * .2, this._nameTxt.height * .5), massDSz);
+                        drawText(this.x, this.y + this.size * .2, text, this._nameSize * .5, "#FFFFFF", true, "#000000");
                     else
-                        this._massTxt.draw(this.x, this.y, massDSz);
+                        drawText(this.x, this.y, text, this._nameSize * .5, "#FFFFFF", true, "#000000");
                 }
             }
             mainCtx.restore();
         },
-        drawShape: function() {
-            var animated = settings.fastRenderMax > drawZoom,
-                jagged = this.isVirus,
-                simple = (jagged || this.isAgitated) ? false : animated;
+        drawShape: function(dt) {
+            var complex = settings.fastRenderMax <= drawZoom,
+                jagged = this.isVirus;
 
             mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0;
             mainCtx.lineCap = "round";
@@ -1081,25 +1146,12 @@
             mainCtx.fillStyle = this.color;
             mainCtx.strokeStyle = this.strokeColor;
 
-
-            if (simple) {
-                if (this._meCache)
-                    // Cached drawing exists - use it
-                    mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
-                else {
-                    mainCtx.beginPath();
-                    mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * 0.5 + 1, 0, PI_2, false);
-                    mainCtx.fill();
-                    mainCtx.stroke();
-                    mainCtx.closePath();
-                }
-            } else {
+            if (complex || jagged || this.isAgitated) {
                 mainCtx.beginPath();
-                animated = !animated;
-                this.updatePoints(animated, jagged);
+                this.updatePoints(complex, jagged, dt);
                 var points = this.rigidPoints;
 
-                mainCtx.moveTo(
+                mainCtx.lineTo(
                     points[0].x,
                     points[0].y
                 );
@@ -1118,118 +1170,124 @@
                 mainCtx.fill();
                 mainCtx.stroke();
                 mainCtx.closePath();
+            } else {
+                if (this._meCache)
+                    // Cached drawing exists - use it
+                    mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
+                else {
+                    mainCtx.beginPath();
+                    mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * 0.5 + 1, 0, PI_2, false);
+                    mainCtx.fill();
+                    mainCtx.stroke();
+                    mainCtx.closePath();
+                }
             }
         }
     };
-    var sent = false;
 
-    function getNextPointDiff(jagged, index, animated, lastPoint, sinAnimation, pointAmount) {
-        // Increased zoom makes the animation very rough
-        var zDiv = drawZoom * 1.7;
-        if (jagged) {
-            // Viruses with more than 90 points have edges sharper than vanilla
-            // (Vanilla doesn't draw that much points but whatever)
-            var m = Math.min(90 / pointAmount, 1),
-                diff = index % 2 === 0 ? -4 * m : 4 * m;
-            if (!animated) return diff;
-            if (!lastPoint) return diff + sinAnimation * (animated ? Math.random() - .5 : 0);
-            return Math.min(Math.max(lastPoint.diff - (sinAnimation * (Math.random() - .5)), (diff / zDiv) - .5), (diff / zDiv) + .5);
-        }
-        // Non-virus point animation
-        if (!lastPoint) return animated ? 2 * (Math.random() - .5) : 0;
-        if (!animated) return lastPoint.diff;
-        return Math.min(Math.max(lastPoint.diff - (sinAnimation * (Math.random() - .5)), -.8 / zDiv), .8 / zDiv);
+    function toleranceCompare(a, b, t) {
+        var d = a - b;
+        (d < 0) && (d = -d);
+        return d <= t;
     }
 
-    function Text(value, size, color, stroke, strokeColor) {
-        this._t = (this._c = document.createElement('canvas')).getContext('2d');
-        this.setStrokeColor(strokeColor);
-        this.setStroke(stroke);
-        this.setColor(color);
-        this.setSize(size);
-        this.setValue(value);
-    }
-    Text.prototype = {
-        value: "",
-        size: 16,
-        color: "#FFFFFF",
-        stroke: false,
-        strokeColor: "#000000",
-        _redraw: true,
-        _mZoom: 1,
-        width: 0,
-        height: 0,
-        _c: null,
-        _t: null,
-        setValue: function(a) {
-            if (this.value !== a) {
-                this._redraw = true;
-                this.value = a;
-            }
-        },
-        setSize: function(a) {
-            if (this.size !== a) {
-                this._redraw = true;
-                this.size = a;
-            }
-        },
-        setColor: function(a) {
-            if (this.color !== a) {
-                this._redraw = true;
-                this.color = a;
-            }
-        },
-        setStroke: function(a) {
-            if (this.stroke !== a) {
-                this._redraw = true;
-                this.stroke = true;
-            }
-        },
-        setStrokeColor: function(a) {
-            if (this.strokeColor !== a) {
-                this._redraw = true;
-                this.strokeColor = a;
-            }
-        },
-        draw: function(x, y, drawSize) {
-            var canvas = this._c,
-                sz = this.size,
-                sDiv = drawSize / sz,
-                cText = 100 / sz,
-                cMouse = Math.min(mouseZoom, cText);
-
-            if (this._redraw || this._mZoom !== cMouse) {
-                this._redraw = false;
-                this._mZoom = cMouse;
-                var ctx = this._t,
-                    value = this.value,
-                    size = this.size,
-                    stroke = this.stroke,
-                    color = this.color,
-                    strokeColor = this.strokeColor,
-                    lineWidth = size * .1;
-
-                // Why set font twice???
-                ctx.font = size + 'px Ubuntu';
-                canvas.width = (ctx.measureText(value).width + lineWidth) * cMouse + 3;
-                canvas.height = size * 1.2 * cMouse;
-                ctx.font = size + 'px Ubuntu';
-                ctx.fillStyle = color;
-                ctx.lineWidth = lineWidth;
-                ctx.strokeStyle = strokeColor;
-
-                ctx.scale(cMouse, cMouse);
-                stroke && ctx.strokeText(this.value, (lineWidth *= .5), this.size * .9);
-                ctx.fillText(this.value, lineWidth, this.size * .9);
-            }
-            var cW = canvas.width,
-                cH = canvas.height,
-                cMW = this.width = cW / cMouse * sDiv,
-                cMH = this.height = cH / cMouse * sDiv;
-
-            mainCtx.drawImage(canvas, 0, 0, cW, cH, x - cMW * .5, y - cMH * .5, cMW, cMH);
+    function getNextDiff(jagged, index, pointAmount, animated) {
+        if (animated) {
+            var maxDiff = jagged ? 3 : 1.7 / drawZoom * .8;
+            if (jagged) return (index % 2 === 1 ? -maxDiff : maxDiff) + Math.random() - 1.5;
+            return (Math.random() - .5) * maxDiff * 2;
         }
-    };
+        if (jagged) return index % 2 === 1 ? -3 : 3;
+        return 0;
+    }
+
+    var textCache = { };
+
+    function collectTextGarbage() {
+        var now = Date.now();
+        for (var i in textCache) {
+            for (var j in textCache[i]) {
+                if (now - textCache[i][j].accessTime > 3000) {
+                    // Text unused for 3 seconds, delete it to restore memory
+                    delete textCache[i][j];
+                    if (Object.keys(textCache[i]).length === 0) delete textCache[i]; // Full removal
+                }
+            }
+        }
+    }
+
+    function newTextCache(value, size, color, stroke, strokeColor) {
+        var canvas = document.createElement('canvas'),
+            ctx = canvas.getContext('2d'),
+            lineWidth = size * .1;
+
+        // Why set font twice???
+        ctx.font = size + 'px Ubuntu';
+        canvas.width = (ctx.measureText(value).width + lineWidth) + 3;
+        canvas.height = size + lineWidth;
+        ctx.font = size + 'px Ubuntu';
+        ctx.fillStyle = color || "#FFFFFF";
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = strokeColor || "#000000";
+
+        stroke && ctx.strokeText(value, (lineWidth *= .5), size * .9);
+        ctx.fillText(value, lineWidth, size * .9);
+
+        (!textCache[value]) && (textCache[value] = { });
+        textCache[value][size] = {
+            canvas: canvas,
+            color: color,
+            stroke: stroke,
+            strokeColor: strokeColor,
+            accessTime: Date.now()
+        };
+        return canvas;
+    }
+
+    function findMatch(value, size, color, stroke, strokeColor) {
+        if (!textCache[value]) return newTextCache(value, size, color, stroke, strokeColor); // No text with equal string
+
+        var tolerance = ~~(size * .1),
+            b;
+
+        if ((b = textCache[value][size])) {
+            // Same style check
+            if (b.color === color && b.stroke === stroke && b.strokeColor === strokeColor) {
+                b.accessTime = Date.now();
+                return b.canvas;
+            }
+        }
+
+        // Search with identical sized text
+        for (var i = 1; i < tolerance; i++) {
+            // Larger text sizes are better
+            if ((b = textCache[value][size + i])) {
+                // Same style check
+                if (b.color === color && b.stroke === stroke && b.strokeColor === strokeColor) {
+                    b.accessTime = Date.now();
+                    return b.canvas;
+                }
+            }
+            // In any case check for smaller size too
+            if ((b = textCache[value][size - i])) {
+                if (b.color === color && b.stroke === stroke && b.strokeColor === strokeColor) {
+                    b.accessTime = Date.now();
+                    return b.canvas;
+                }
+            }
+        }
+
+        // No match
+        return newTextCache(value, size, color, stroke, strokeColor);
+    }
+
+    function drawText(x, y, value, size, color, stroke, strokeColor, isMass) {
+        var identical = findMatch(value, size, color, stroke, strokeColor),
+            w = identical.width,
+            h = identical.height;
+
+        mainCtx.drawImage(identical, x - w * .5, y - h * .5, w, h);
+    }
 
     wHandle.setserver = function(arg) {
         if (CONNECT_TO != arg) {
@@ -1241,6 +1299,7 @@
         settings.darkTheme = a;
     };
     wHandle.setShowMass = function(a) {
+        alert("Showing mass will make your RAM skyrocket to extreme amounts due to text caching. An update to fix this will come soon.");
         settings.showMass = a;
     };
     wHandle.setSkins = function(a) {
