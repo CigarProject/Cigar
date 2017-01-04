@@ -83,7 +83,8 @@
         gameType = -1;
         serverVersion = "Unknown";
         serverStats = null;
-        _sizeChange = false;
+        leaderboardCanvas = null;
+        serverStatCanvas = null;
     }
 
     function Connect(to) {
@@ -706,7 +707,7 @@
             now = Date.now(),
             i = 0, msg,
             lastMsg = chatMessages.peek(),
-            fW, aW,
+            fW, aW = 0,
             alpha = getChatAlpha();
 
         if (alpha === 0) {
@@ -717,24 +718,33 @@
 
         while ((l = chatMessages.length) > 15) chatMessages.shift(); // Remove older messages
 
-        chatCanvas.width = 800;
-        chatCanvas.height = (l + 1) * 20;
-        ctx.globalAlpha = alpha;
-
         for ( ; i < l; i++) {
+            msg = chatMessages[i];
+            ctx.font = '18px Ubuntu';
+            aW = Math.max(aW, 20 + ctx.measureText(msg.name + ":").width + ctx.measureText(" " + msg.message).width);
+        }
+
+        chatCanvas.width = aW;
+        chatCanvas.height = l * 20 + 20;
+        ctx.fillStyle = "#000000";
+        ctx.globalAlpha = alpha * .2;
+        ctx.fillRect(0, 0, chatCanvas.width, chatCanvas.height);
+
+        ctx.globalAlpha = alpha;
+        for (i = 0; i < l; i++) {
             msg = chatMessages[i];
 
             // Name
             ctx.fillStyle = msg.nameColor;
             ctx.font = '18px Ubuntu';
-            fW = ctx.measureText(msg.name + ":");
+            fW = ctx.measureText(msg.name + ":").width;
             ctx.font = '18px Ubuntu';
-            ctx.fillText(msg.name + ":", 2, 20 * (i + 1));
+            ctx.fillText(msg.name + ":", 10, 5 + 20 * (i + 1));
 
             // Message
             ctx.font = '18px Ubuntu';
-            ctx.fillStyle = settings.darkTheme ? "#FFFFFF" : "#000000";
-            ctx.fillText(" " + msg.message, 2 + fW.width, 20 * (i + 1));
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillText(" " + msg.message, 10 + fW, 5 + 20 * (i + 1));
         }
     }
 
@@ -745,9 +755,7 @@
         }
 
         if (!serverStatCanvas) serverStatCanvas = document.createElement('canvas');
-        var ctx = serverStatCanvas.getContext('2d'),
-            w, h = serverStatCanvas.height = 85,
-            a, b, c;
+        var ctx = serverStatCanvas.getContext('2d'), a, b, c;
 
         ctx.font = '14px Ubuntu';
         serverStatCanvas.width = 4 + Math.max(
@@ -757,12 +765,10 @@
             ctx.measureText((b = serverStats.playersAlive + " playing")).width,
             ctx.measureText((c = serverStats.playersSpect + " spectating")).width
         );
-        ctx.globalAlpha = .4;
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, w, h);
+        serverStatCanvas.height = 85;
 
         ctx.font = '14px Ubuntu';
-        ctx.fillStyle = "#FFFFFF";
+        ctx.fillStyle = settings.darkTheme ? "#AAAAAA" : "#000000";
         ctx.globalAlpha = 1;
         ctx.fillText(serverStats.name, 2, 16);
         ctx.fillText(serverStats.mode, 2, 32);
@@ -815,7 +821,7 @@
                     me = o.me;
                     o = o.name;
                 }
-                me ? ctx.fillStyle = "#FFAAAA" : ctx.fillStyle = "#FFFFFF";
+                ctx.fillStyle = me ? "#FFAAAA" : "#FFFFFF";
                 o = (i + 1) + ". " + o;
                 var start = ((w = ctx.measureText(o).width) > 200) ? 2 : 100 - w * 0.5;
                 ctx.fillText(o, start, 70 + 24 * i);
@@ -954,7 +960,7 @@
 
         // Chat alpha update
         if (chatMessages.length > 0) if (getChatAlpha() !== 1) drawChat();
-        chatCanvas && mainCtx.drawImage(chatCanvas, 10, cH - 30 - chatCanvas.height);
+        chatCanvas && mainCtx.drawImage(chatCanvas, 10, cH - 50 - chatCanvas.height);
 
         drawing = false;
 
@@ -1193,7 +1199,7 @@
 
     function getNextDiff(jagged, index, pointAmount, animated) {
         if (animated) {
-            var maxDiff = jagged ? 3 : 1.7 / drawZoom * .8;
+            var maxDiff = jagged ? 3 : 1.7 / drawZoom * .6;
             if (jagged) return (index % 2 === 1 ? -maxDiff : maxDiff) + Math.random() - 1.5;
             return (Math.random() - .5) * maxDiff * 2;
         }
@@ -1297,6 +1303,7 @@
     };
     wHandle.setDarkTheme = function(a) {
         settings.darkTheme = a;
+        drawServerStat();
     };
     wHandle.setShowMass = function(a) {
         alert("Showing mass will make your RAM skyrocket to extreme amounts due to text caching. An update to fix this will come soon.");
