@@ -31,21 +31,36 @@ To add another server, you can call any element that has the main_out.js called 
 Replace IP:PORT with the ones that are corresponding with your server, you can also change the NAME to anything you like.
 
 ### Changing Skins Folder
-The skins folder can be changed to any folder that is located on your web server. If you wish to move the skins folder onto another domain, please do note that the checkdir.php file might stop working and that will break skins from showing up in game. To change the skin folder on the set webserver, you will need to update 2 files. Open /assets/js/main_out.js and edit the following line:
+The skins folder can be changed to any folder that is located on your web server. If you wish to move the skins folder onto another domain, please do note that the checkdir.php file might stop working and that will break skins from showing up in game.
+
+To change the skin folder on the set webserver, you will need to update 3 files.
+
+`www/assets/js/main_out.js`:
+*Remember, folder location here is relative to www/index.html*
 
 ```javascript
-SKIN_URL = "./skins/"; // Skin Directory
+SKIN_URL = "./skins/", // edit me
 ```
 
-Update the ./skins/ to the directory that the skins folder is located in. You can also back out into directories out of where the main_out.js is being called from by using /../ for each directory.
-
-You also need to update one line inside of the checkdir.php file:
+`www/checkdir.php`:
+*Remember, folder location here is relative to www/index.html*
 
 ```php
-$images = glob('./skins/*.{png}', GLOB_BRACE);
+$images = glob('./skins/*.{png}', GLOB_BRACE); # <-- edit the ./skins/ part
 ```
 
-Update the part where it says ./skins/, however make sure not remove *.{png} because without that the skins will not load anymore. (Also, make sure all the skin files are .png!)
+`www/include/gallery.php`:
+*Remember, the first variable is relative to www/include/gallery.php, and the second one to www/index.html*
+
+```php
+# Skin directory relative to include/gallery.php (this file)
+$skindir = "../skins/"; # <-- edit me
+
+# Skin directory relative to index.html
+$skindirhtml = "./skins/"; # <-- edit me
+```
+
+**Be sure that all your skins are in .PNG format and that all URLs end with a `/`**.
 
 ## Support
 You can get support from the community and developers by adding issues or suggestions in the issues tab at this repository. However please do note, **if you remove the backlink to Cigar on your project, we will NOT provide support for your website.**
