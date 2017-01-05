@@ -141,6 +141,11 @@
                 while (nameColor.length < 6) nameColor = '0' + nameColor;
                 nameColor = '#' + nameColor;
                 name = reader.getStringUTF8();
+
+                // Replace {skin} with empty string
+                var reg = /\{([\w]+)\}/.exec(name);
+                if (reg) if (reg.length === 2) name = name.replace(reg[0], "").trim();
+
                 message = reader.getStringUTF8();
                 chatAlphaWait += Math.max(2000, 1000 + message.length * 100);
                 chatMessages.push({
@@ -544,9 +549,9 @@
             "action": "getSkins"
         },
         success: function(data) {
-            response = JSON.parse(data["names"]);
+            response = JSON.parse(data.names);
             for (var i = 0; i < response.length; i++) {
-                if (-1 == knownSkins.indexOf(response[i])) {
+                if (-1 === knownSkins.indexOf(response[i])) {
                     knownSkins.push(response[i]);
                 }
             }
@@ -590,45 +595,47 @@
         wHandle.onkeydown = function(event) {
             switch (event.keyCode) {
                 case 13: // enter
-                    if (isTyping && settings.showChat) {
+                    if (escOverlay) break;
+                    if (!settings.showChat) break;
+                    if (isTyping) {
                         chatBox.blur();
                         var chattxt = chatBox.value;
                         if (chattxt.length > 0) SendChat(chattxt);
                         chatBox.value = "";
-                    } else if (settings.showChat) chatBox.focus();
+                    } else chatBox.focus();
                     break;
                 case 32: // space
-                    if (isTyping || pressed.space) break;
+                    if (isTyping || escOverlay || pressed.space) break;
                     WsSend(UINT8_CACHE[17]);
                     pressed.space = true;
                     break;
                 case 87: // W
-                    if (isTyping || pressed.w) break;
+                    if (isTyping || escOverlay || pressed.w) break;
                     WsSend(UINT8_CACHE[21]);
                     pressed.w = true;
                     break;
                 case 81: // Q
-                    if (isTyping || pressed.q) break;
+                    if (isTyping || escOverlay || pressed.q) break;
                     WsSend(UINT8_CACHE[18]);
                     pressed.w = true;
                     break;
                 case 69: // E
-                    if (isTyping || pressed.e) break;
+                    if (isTyping || escOverlay || pressed.e) break;
                     WsSend(UINT8_CACHE[22]);
                     pressed.w = true;
                     break;
                 case 82: // R
-                    if (isTyping || pressed.r) break;
+                    if (isTyping || escOverlay || pressed.r) break;
                     WsSend(UINT8_CACHE[23]);
                     pressed.w = true;
                     break;
                 case 84: // T
-                    if (isTyping || pressed.t) break;
+                    if (isTyping || escOverlay || pressed.t) break;
                     WsSend(UINT8_CACHE[24]);
                     pressed.w = true;
                     break;
                 case 80: // P
-                    if (isTyping || pressed.p) break;
+                    if (isTyping || escOverlay || pressed.p) break;
                     WsSend(UINT8_CACHE[25]);
                     pressed.w = true;
                     break;
@@ -697,7 +704,7 @@
     }
 
     function getChatAlpha() {
-        if (isTyping) return true;
+        if (isTyping) return 1;
         var now = Date.now(),
             lastMsg = chatMessages.peek(),
             diff = now - lastMsg.time;
@@ -706,7 +713,11 @@
     }
 
     function drawChat() {
-        if (!settings.showChat || chatMessages.length === 0) return;
+        if (!settings.showChat || chatMessages.length === 0) {
+            chatCanvas = null;
+            return;
+        }
+
         if (!chatCanvas) chatCanvas = document.createElement('canvas');
 
         var ctx = chatCanvas.getContext('2d'),
@@ -717,7 +728,7 @@
             fW, aW = 0,
             alpha = getChatAlpha();
 
-        if (alpha === 0 || !settings.showChat) {
+        if (alpha === 0) {
             chatCanvas = null;
             chatAlphaWait = 0;
             return;
@@ -786,6 +797,11 @@
 
     function drawLeaderboard() {
         if (leaderboardType === -1) return;
+
+        if (leaderboard.length === 0 || !settings.showNames) {
+            leaderboardCanvas = null;
+            return;
+        }
         if (!leaderboardCanvas) leaderboardCanvas = document.createElement('canvas');
 
         var ctx = leaderboardCanvas.getContext('2d'),
@@ -1063,7 +1079,7 @@
             }
             this.x += (this.nx - this.x) * dt;
             this.y += (this.ny - this.y) * dt;
-            this.size += (this.nSize - this.size) * dt;
+            this.size += (this.nSize - this.size) * (this.wasComplexDrawing ? dt * .4 : dt);
             this._nameSize = ~~(Math.max(~~(.3 * this.nSize), 24) / 4) * 4;
         },
         setName: function(name) {
@@ -1170,7 +1186,7 @@
             mainCtx.restore();
         },
         drawShape: function(dt) {
-            var complex = settings.fastRenderMax <= drawZoom,
+            var complex = this.wasComplexDrawing = settings.fastRenderMax <= drawZoom,
                 jagged = this.isVirus;
 
             mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0;
@@ -1219,10 +1235,9 @@
             }
         },
         drawSkin: function() {
-            var image = null,
-                skin = this.skin || this.nameSkin;
+            var skin = this.skin || this.nameSkin;
 
-            if (settings.showSkins && skin != '') {
+            if (settings.showSkins && skin != '' && -1 !== knownSkins.indexOf(skin)) {
                 if (!loadedSkins.hasOwnProperty(skin)) {
                     // Download skin
                     loadedSkins[skin] = new Image;
@@ -1231,13 +1246,9 @@
                 // Set skin to draw
                 if (0 != loadedSkins[skin].width && loadedSkins[skin].complete) {
                     loadedSkins[skin].accessTime = Date.now();
-                    image = loadedSkins[skin];
+                    mainCtx.clip();
+                    mainCtx.drawImage(loadedSkins[skin], this.x - this.size, this.y - this.size, 2 * this.size, 2 * this.size);
                 }
-            }
-
-            if (image) {
-                mainCtx.clip();
-                mainCtx.drawImage(image, this.x - this.size, this.y - this.size, 2 * this.size, 2 * this.size);
             }
         }
     };
@@ -1463,13 +1474,13 @@
     };
     wHandle.setNames = function(a) {
         settings.showNames = a;
+        drawLeaderboard();
     };
     wHandle.setSmooth = function(a) {
         settings.fastRenderMax = a ? 4 : 0.4;
     };
     wHandle.setChatHide = function(a) {
         settings.showChat = !a;
-        $("chat_textbox").hide();
         drawChat();
     };
     wHandle.spectate = function(a) {
