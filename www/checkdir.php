@@ -14,8 +14,6 @@ function is_ajax() {
 }
 
 function getSkins(){
-	$return = $_POST;
-
 	$images = glob('./skins/*.{png}', GLOB_BRACE);
 	foreach ($images as &$path) {
 		$path = basename($path,".png");
@@ -23,7 +21,6 @@ function getSkins(){
 
 	unset($path);
 	$return["names"] = json_encode($images);
-	$return["json"] = json_encode($return);
 	echo json_encode($return);
 }
 
