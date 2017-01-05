@@ -598,32 +598,39 @@
                     } else if (settings.showChat) chatBox.focus();
                     break;
                 case 32: // space
-                    if (isTyping) break;
+                    if (isTyping || pressed.space) break;
                     WsSend(UINT8_CACHE[17]);
+                    pressed.space = true;
                     break;
                 case 87: // W
-                    if (isTyping) break;
+                    if (isTyping || pressed.w) break;
                     WsSend(UINT8_CACHE[21]);
+                    pressed.w = true;
                     break;
                 case 81: // Q
-                    if (isTyping) break;
+                    if (isTyping || pressed.q) break;
                     WsSend(UINT8_CACHE[18]);
+                    pressed.w = true;
                     break;
                 case 69: // E
-                    if (isTyping) break;
+                    if (isTyping || pressed.e) break;
                     WsSend(UINT8_CACHE[22]);
+                    pressed.w = true;
                     break;
                 case 82: // R
-                    if (isTyping) break;
+                    if (isTyping || pressed.r) break;
                     WsSend(UINT8_CACHE[23]);
+                    pressed.w = true;
                     break;
                 case 84: // T
-                    if (isTyping) break;
+                    if (isTyping || pressed.t) break;
                     WsSend(UINT8_CACHE[24]);
+                    pressed.w = true;
                     break;
                 case 80: // P
-                    if (isTyping) break;
+                    if (isTyping || pressed.p) break;
                     WsSend(UINT8_CACHE[25]);
+                    pressed.w = true;
                     break;
                 case 27: // esc
                     if (pressed.esc) break;
@@ -942,19 +949,22 @@
         mainCtx.translate(-tx, -ty);
 
         mainCtx.save();
-        mainCtx.fillStyle = settings.darkTheme ? "#F2FBFF" : "#111111";
+
         // Score & FPS drawing
-        var topText = ~~fps + " FPS";
+        var topText = ~~fps + " FPS",
+            topSize = topSize = 20 / viewMult;
         if (latency !== -1) topText += ", " + latency + "ms ping";
 
+        mainCtx.fillStyle = settings.darkTheme ? "#FFFFFF" : "#000000";
         if (userScore > 0) {
-            mainCtx.font = "32px Ubuntu";
+            var scoreSize = 32 / viewMult;
+            mainCtx.font = ~~scoreSize + "px Ubuntu";
             mainCtx.fillText("Score: " + userScore, 2, 34);
-            mainCtx.font = "20px Ubuntu";
+            mainCtx.font = ~~topSize + "px Ubuntu";
             mainCtx.fillText(topText, 2, 58);
             serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60);
         } else {
-            mainCtx.font = "20px Ubuntu";
+            mainCtx.font = ~~topSize + "px Ubuntu";
             mainCtx.fillText(topText, 2, 22);
             serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24);
         }
@@ -1046,7 +1056,7 @@
             this.x += (this.nx - this.x) * dt;
             this.y += (this.ny - this.y) * dt;
             this.size += (this.nSize - this.size) * dt;
-            this._nameSize = ~~(Math.max(~~(.3 * this.size), 24) / 4) * 4;
+            this._nameSize = ~~(Math.max(~~(.3 * this.nSize), 24) / 4) * 4;
         },
         setName: function(name) {
             this.name = name;
@@ -1080,13 +1090,13 @@
         },
         updatePoints: function(animated, jagged, dt) {
             // Update points
-            var pointAmount = jagged ? (this.size * .9) : this.size * drawZoom,
+            var pointAmount = this.size,
                 minPointAmount = jagged ? 90 : (this.isPellet ? 5 : 16),
                 x = this.x,
                 y = this.y,
                 i = 0, p, sz, step, pt, avg;
 
-            this.notPellet && (pointAmount *= .5);
+            !this.isVirus && (pointAmount *= drawZoom);
             this.isEjected && (pointAmount *= .5);
             pointAmount = Math.max(~~pointAmount, minPointAmount);
             jagged && (pointAmount = ~~(pointAmount * .5) * 2);
@@ -1138,7 +1148,7 @@
                 if (settings.showMass && (myNodes.indexOf(this.id) !== -1 || myNodes.length === 0) && this.size >= 20) {
                     var text = (~~(this.size * this.size * .01)).toString();
                     if (nameDraw)
-                        drawText(this.x, this.y + this.size * .2, text, this._nameSize * .5, true);
+                        drawText(this.x, this.y + Math.max(this.size * .2, this._nameSize * .6), text, this._nameSize * .5, true);
                     else
                         drawText(this.x, this.y, text, this._nameSize * .5, true);
                 }
@@ -1152,8 +1162,8 @@
             mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0;
             mainCtx.lineCap = "round";
             mainCtx.lineJoin = jagged ? "miter" : "round";
-            mainCtx.fillStyle = this.color;
-            mainCtx.strokeStyle = this.strokeColor;
+            mainCtx.fillStyle = settings.showColor ? this.color : "#FFFFFF";
+            mainCtx.strokeStyle = settings.showColor ? this.strokeColor : "#E5E5E5";
 
             if (complex || jagged || this.isAgitated) {
                 mainCtx.beginPath();
@@ -1202,7 +1212,7 @@
 
     function getNextDiff(jagged, index, pointAmount, animated) {
         if (animated) {
-            var maxDiff = jagged ? 3 : 1.7 / drawZoom * .6;
+            var maxDiff = jagged ? 3 : 1.7 / Math.min(drawZoom, 1) * .6;
             if (jagged) return (index % 2 === 1 ? -maxDiff : maxDiff) + Math.random() - 1.5;
             return (Math.random() - .5) * maxDiff * 2;
         }
@@ -1215,6 +1225,7 @@
 
     function collectTextGarbage() {
         var now = Date.now();
+
         for (var i in textCache) {
             for (var j in textCache[i]) {
                 if (now - textCache[i][j].accessTime > 3000) {
@@ -1273,14 +1284,14 @@
                 { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 9
             ],
             i = 0,
-            lineWidth = ~~(size * .05),
+            lineWidth = ~~(size * .1),
             ctx, canvas, height = size + lineWidth * 5 + 2;
 
         for ( ; i < 10; i++) {
             canvas = canvasList[i].c;
             ctx = canvasList[i].t;
             ctx.font = size + 'px Ubuntu';
-            canvasList[i].w = (canvas.width = ctx.measureText(i).width + lineWidth) * .9;
+            canvasList[i].w = (canvas.width = ctx.measureText(i).width + lineWidth) - lineWidth;
             canvas.height = height;
             ctx.font = size + 'px Ubuntu';
             ctx.fillStyle = "#FFFFFF";
@@ -1403,13 +1414,13 @@
         settings.showSkins = a;
     };
     wHandle.setColors = function(a) {
-        settings.showColor = a;
+        settings.showColor = !a;
     };
     wHandle.setNames = function(a) {
         settings.showNames = a;
     };
     wHandle.setSmooth = function(a) {
-        settings.fastRenderMax = a ? 1 : 0.4;
+        settings.fastRenderMax = a ? 4 : 0.4;
     };
     wHandle.setChatHide = function(a) {
         settings.showChat = a;
