@@ -69,7 +69,7 @@
         centerX = 0;
         centerY = 0;
         lastMessageTime = -1;
-        latency = Infinity;
+        latency = -1;
         _cX = 0;
         _cY = 0;
         _cZoom = 1;
@@ -466,7 +466,7 @@
         viewZoom = 1,  // Scale without scroll scaling
         mouseZoom = 1, // Scroll scale
         lastMessageTime = -1,
-        latency = Infinity,
+        latency = -1,
         drawing = false,
         userName = "",
         // Red Green Blue Yellow Cyan Magenta Orange
@@ -944,15 +944,18 @@
         mainCtx.save();
         mainCtx.fillStyle = settings.darkTheme ? "#F2FBFF" : "#111111";
         // Score & FPS drawing
+        var topText = ~~fps + " FPS";
+        if (latency !== -1) topText += ", " + latency + "ms ping";
+
         if (userScore > 0) {
             mainCtx.font = "32px Ubuntu";
-            mainCtx.fillText("Score: " + userScore, 2, 34);
+            mainCtx.fillText(scoreText, 2, 34);
             mainCtx.font = "20px Ubuntu";
-            mainCtx.fillText(~~fps + " FPS, " + latency + " ping", 2, 58);
+            mainCtx.fillText(topText, 2, 58);
             serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60);
         } else {
             mainCtx.font = "20px Ubuntu";
-            mainCtx.fillText(~~fps + " FPS, " + latency + " ping", 2, 22);
+            mainCtx.fillText(topText, 2, 22);
             serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24);
         }
         mainCtx.restore();
@@ -1130,14 +1133,14 @@
             // Text drawing
             if (this.notPellet) {
                 var nameDraw = settings.showNames && this.name !== "" && !this.isVirus;
-                if (nameDraw) drawText(this.x, this.y, this.name, this._nameSize, "#FFFFFF", true, "#000000");
+                if (nameDraw) drawText(this.x, this.y, this.name, this._nameSize, false);
 
                 if (settings.showMass && (myNodes.indexOf(this.id) !== -1 || myNodes.length === 0) && this.size >= 20) {
-                    var text = ~~(this.size * this.size * .01);
+                    var text = (~~(this.size * this.size * .01)).toString();
                     if (nameDraw)
-                        drawText(this.x, this.y + this.size * .2, text, this._nameSize * .5, "#FFFFFF", true, "#000000");
+                        drawText(this.x, this.y + this.size * .2, text, this._nameSize * .5, true);
                     else
-                        drawText(this.x, this.y, text, this._nameSize * .5, "#FFFFFF", true, "#000000");
+                        drawText(this.x, this.y, text, this._nameSize * .5, true);
                 }
             }
             mainCtx.restore();
@@ -1207,7 +1210,8 @@
         return 0;
     }
 
-    var textCache = { };
+    var textCache = { },
+        massCache = { };
 
     function collectTextGarbage() {
         var now = Date.now();
@@ -1220,79 +1224,166 @@
                 }
             }
         }
+        for (i in massCache) {
+            if (now - massCache[i].accessTime > 3000) {
+                // Mass numbers unused for 3 seconds, delete it to restore memory
+                delete massCache[i];
+            }
+        }
     }
 
-    function newTextCache(value, size, color, stroke, strokeColor) {
+    function newTextCache(value, size) {
         var canvas = document.createElement('canvas'),
             ctx = canvas.getContext('2d'),
-            lineWidth = size * .1;
+            lineWidth = ~~(size * .1);
 
         // Why set font twice???
         ctx.font = size + 'px Ubuntu';
         canvas.width = (ctx.measureText(value).width + lineWidth) + 3;
-        canvas.height = size + lineWidth;
+        canvas.height = size + lineWidth * 5;
         ctx.font = size + 'px Ubuntu';
-        ctx.fillStyle = color || "#FFFFFF";
+        ctx.fillStyle = "#FFFFFF";
         ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = strokeColor || "#000000";
+        ctx.strokeStyle = "#000000";
 
-        stroke && ctx.strokeText(value, (lineWidth *= .5), size * .9);
-        ctx.fillText(value, lineWidth, size * .9);
+        ctx.strokeText(value, lineWidth, size);
+        ctx.fillText(value, lineWidth, size);
 
         (!textCache[value]) && (textCache[value] = { });
+        (!textCache[value][size]) && (textCache[value][size] = []);
         textCache[value][size] = {
             canvas: canvas,
-            color: color,
-            stroke: stroke,
-            strokeColor: strokeColor,
             accessTime: Date.now()
         };
         return canvas;
     }
 
-    function findMatch(value, size, color, stroke, strokeColor) {
-        if (!textCache[value]) return newTextCache(value, size, color, stroke, strokeColor); // No text with equal string
+    function newMassCache(size) {
+        var temp;
+        var canvasList = [
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 0
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 1
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 2
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 3
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 4
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 5
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 6
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 7
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 8
+                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 9
+            ],
+            i = 0,
+            lineWidth = ~~(size * .05),
+            ctx, canvas, height = size + lineWidth * 5 + 2;
+
+        for ( ; i < 10; i++) {
+            canvas = canvasList[i].c;
+            ctx = canvasList[i].t;
+            ctx.font = size + 'px Ubuntu';
+            canvasList[i].w = (canvas.width = ctx.measureText(i).width + lineWidth) * .9;
+            canvas.height = height;
+            ctx.font = size + 'px Ubuntu';
+            ctx.fillStyle = "#FFFFFF";
+            ctx.lineWidth = lineWidth;
+            ctx.strokeStyle = "#000000";
+
+            ctx.strokeText(i, lineWidth, size);
+            ctx.fillText(i, lineWidth, size);
+        }
+
+        (!massCache[size]) && (massCache[size] = { });
+        massCache[size] = {
+            canvasList: canvasList,
+            height: height,
+            accessTime: Date.now()
+        };
+
+        return massCache[size];
+    }
+
+    function findTextMatch(value, size) {
+        if (!textCache[value]) return newTextCache(value, size); // No text with equal string
 
         var tolerance = ~~(size * .1),
             b;
 
         if ((b = textCache[value][size])) {
-            // Same style check
-            if (b.color === color && b.stroke === stroke && b.strokeColor === strokeColor) {
+            b.accessTime = Date.now();
+            return b.canvas;
+        }
+        var i = 1, j, l;
+
+        // Search with identical sized text
+        for ( ; i < tolerance; i++) {
+            // Larger than requested text sizes are better if no match is found
+            if ((b = textCache[value][size + i])) {
+                b.accessTime = Date.now();
+                return b.canvas;
+            }
+            // In any case check for smaller size too
+            if ((b = textCache[value][size - i])) {
                 b.accessTime = Date.now();
                 return b.canvas;
             }
         }
 
-        // Search with identical sized text
-        for (var i = 1; i < tolerance; i++) {
-            // Larger text sizes are better
-            if ((b = textCache[value][size + i])) {
-                // Same style check
-                if (b.color === color && b.stroke === stroke && b.strokeColor === strokeColor) {
-                    b.accessTime = Date.now();
-                    return b.canvas;
-                }
+        // No match
+        return newTextCache(value, size);
+    }
+
+    function findMassMatch(size) {
+        if (massCache[size]) {
+            massCache[size].accessTime = Date.now();
+            return massCache[size];
+        }
+
+        var b, tolerance = ~~(size * .1), i = 0;
+
+        // Identical search way as with text
+        for ( ; i < tolerance; i++) {
+            // Smaller than requested mass sizes are favored now
+            if ((b = massCache[size - i])) {
+                b.accessTime = Date.now();
+                return b;
             }
-            // In any case check for smaller size too
-            if ((b = textCache[value][size - i])) {
-                if (b.color === color && b.stroke === stroke && b.strokeColor === strokeColor) {
-                    b.accessTime = Date.now();
-                    return b.canvas;
-                }
+            if ((b = massCache[size + i])) {
+                b.accessTime = Date.now();
+                return b;
             }
         }
 
         // No match
-        return newTextCache(value, size, color, stroke, strokeColor);
+        return newMassCache(size);
     }
 
-    function drawText(x, y, value, size, color, stroke, strokeColor, isMass) {
-        var identical = findMatch(value, size, color, stroke, strokeColor),
-            w = identical.width,
-            h = identical.height;
+    function drawText(x, y, value, size, isMass) {
+        var identical;
+        if (isMass) {
+            identical = findMassMatch(size);
+            var str = value.toString(),
+                maxW = 0, nowW = 0,
+                i = 0,
+                currentNumber;
+            y -= identical.height * .5;
 
-        mainCtx.drawImage(identical, x - w * .5, y - h * .5, w, h);
+            // Measure half-width
+            for ( ; i < str.length; i++)
+                maxW += identical.canvasList[parseInt(str[i])].w;
+            x -= maxW / 2;
+
+            // Draw char by char
+            for (i = 0; i < str.length; i++) {
+                currentNumber = identical.canvasList[parseInt(str[i])];
+                mainCtx.drawImage(currentNumber.c, x, y);
+                x += currentNumber.w;
+            }
+        } else {
+            identical = findTextMatch(value, size, isMass),
+                w = identical.width,
+                h = identical.height;
+
+            mainCtx.drawImage(identical, x - w * .5, y - h * .5, w, h);
+        }
     }
 
     wHandle.setserver = function(arg) {
@@ -1306,7 +1397,6 @@
         drawServerStat();
     };
     wHandle.setShowMass = function(a) {
-        alert("Showing mass will make your RAM skyrocket to extreme amounts due to text caching. An update to fix this will come soon.");
         settings.showMass = a;
     };
     wHandle.setSkins = function(a) {
