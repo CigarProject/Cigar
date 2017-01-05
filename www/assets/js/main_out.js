@@ -75,7 +75,6 @@
         _cZoom = 1;
         mapCenterSet = false;
         border = BORDER_DEFAULT;
-        knownSkins = [];
         loadedSkins = [];
         viewZoom = 1;
         userName = "";
