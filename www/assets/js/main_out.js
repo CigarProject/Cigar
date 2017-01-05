@@ -284,8 +284,8 @@
                         node.ny = y;
                         node.nSize = size;
                         updColor && (node.setColor(color));
-                        updName && (node.setName(name));
-                        updSkin && (node.skin = skin);
+                        updName && name && (node.setName(name));
+                        updSkin && skin && (node.setSkin(skin));
                         node.updateStamp = time;
                     } else {
                         node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", time, flags);
@@ -717,7 +717,7 @@
             fW, aW = 0,
             alpha = getChatAlpha();
 
-        if (alpha === 0) {
+        if (alpha === 0 || !settings.showChat) {
             chatCanvas = null;
             chatAlphaWait = 0;
             return;
@@ -828,6 +828,13 @@
                     me = o.me;
                     o = o.name;
                 }
+
+                // Replace {skin} with empty string
+                var reg = /\{([\w]+)\}/.exec(o);
+                if (reg) if (reg.length === 2) o = o.replace(reg[0], "").trim();
+
+                (leaderboardType === 0x31) && (o = o || "An unnamed cell");
+
                 ctx.fillStyle = me ? "#FFAAAA" : "#FFFFFF";
                 o = (i + 1) + ". " + o;
                 var start = ((w = ctx.measureText(o).width) > 200) ? 2 : 100 - w * 0.5;
@@ -977,7 +984,7 @@
 
         drawing = false;
 
-        collectTextGarbage();
+        garbageCollection();
     }
 
     function nodeSort(a, b) {
@@ -999,7 +1006,7 @@
         this.x = this.nx = x;
         this.y = this.ny = y;
         this.size = this.nSize = size;
-        this.setName(name, 1);
+        this.setName(name);
         this.setColor(color);
         this.skin = skin;
         if (flags) {
@@ -1019,6 +1026,7 @@
         size: 0,
         name: 0,
         color: "#FFFFFF",
+        nameSkin: "",
         skin: "",
         updateStamp: -1,
         birthStamp: -1,
@@ -1059,10 +1067,16 @@
             this._nameSize = ~~(Math.max(~~(.3 * this.nSize), 24) / 4) * 4;
         },
         setName: function(name) {
+            var reg = /\{([\w]+)\}/.exec(name);
+            if (reg) if (reg.length === 2) {
+                this.nameSkin = reg[1].toLowerCase();
+                this.name = name.replace(reg[0], "").trim();
+                return;
+            }
             this.name = name;
         },
-        getNameSize: function() {
-            return this._nSize;
+        setSkin: function(skin) {
+            this.skin = skin;
         },
         setColor: function(color) {
             this.color = color;
@@ -1188,6 +1202,7 @@
                 );
                 mainCtx.fill();
                 mainCtx.stroke();
+                this.drawSkin();
                 mainCtx.closePath();
             } else {
                 if (this._meCache)
@@ -1198,8 +1213,31 @@
                     mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * 0.5 + 1, 0, PI_2, false);
                     mainCtx.fill();
                     mainCtx.stroke();
+                    this.drawSkin();
                     mainCtx.closePath();
                 }
+            }
+        },
+        drawSkin: function() {
+            var image = null,
+                skin = this.skin || this.nameSkin;
+
+            if (settings.showSkins && skin != '') {
+                if (!loadedSkins.hasOwnProperty(skin)) {
+                    // Download skin
+                    loadedSkins[skin] = new Image;
+                    loadedSkins[skin].src = SKIN_URL + skin + '.png';
+                }
+                // Set skin to draw
+                if (0 != loadedSkins[skin].width && loadedSkins[skin].complete) {
+                    loadedSkins[skin].accessTime = Date.now();
+                    image = loadedSkins[skin];
+                }
+            }
+
+            if (image) {
+                mainCtx.clip();
+                mainCtx.drawImage(image, this.x - this.size, this.y - this.size, 2 * this.size, 2 * this.size);
             }
         }
     };
@@ -1212,7 +1250,7 @@
 
     function getNextDiff(jagged, index, pointAmount, animated) {
         if (animated) {
-            var maxDiff = jagged ? 3 : 1.7 / Math.min(drawZoom, 1) * .6;
+            var maxDiff = jagged ? 3 : 1.7 / Math.max(drawZoom, 1) * .6;
             if (jagged) return (index % 2 === 1 ? -maxDiff : maxDiff) + Math.random() - 1.5;
             return (Math.random() - .5) * maxDiff * 2;
         }
@@ -1223,7 +1261,7 @@
     var textCache = { },
         massCache = { };
 
-    function collectTextGarbage() {
+    function garbageCollection() {
         var now = Date.now();
 
         for (var i in textCache) {
@@ -1239,6 +1277,13 @@
             if (now - massCache[i].accessTime > 3000) {
                 // Mass numbers unused for 3 seconds, delete it to restore memory
                 delete massCache[i];
+            }
+        }
+
+        for (var i in loadedSkins) {
+            if (now - loadedSkins[i].accessTime > 60000) {
+                // Loaded skin image unused for 60 seconds, delete it to restore memory
+                delete loadedSkins[i];
             }
         }
     }
@@ -1291,7 +1336,7 @@
             canvas = canvasList[i].c;
             ctx = canvasList[i].t;
             ctx.font = size + 'px Ubuntu';
-            canvasList[i].w = (canvas.width = ctx.measureText(i).width + lineWidth) - lineWidth;
+            canvasList[i].w = (canvas.width = ctx.measureText(i).width + lineWidth * 2) - lineWidth * 2;
             canvas.height = height;
             ctx.font = size + 'px Ubuntu';
             ctx.fillStyle = "#FFFFFF";
@@ -1423,7 +1468,9 @@
         settings.fastRenderMax = a ? 4 : 0.4;
     };
     wHandle.setChatHide = function(a) {
-        settings.showChat = a;
+        settings.showChat = !a;
+        $("chat_textbox").hide();
+        drawChat();
     };
     wHandle.spectate = function(a) {
         WsSend(UINT8_CACHE[1]);
@@ -1433,7 +1480,15 @@
     wHandle.play = function(a) {
         Play(a);
         hideESCOverlay();
-    }
+    };
+    wHandle.openSkinsList = function(arg) {
+        if ($('#inPageModalTitle').text() != "Skins") {
+            $.get('include/gallery.php').then(function(data) {
+                $('#inPageModalTitle').text("Skins");
+                $('#inPageModalBody').html(data);
+            });
+        }
+    };
 
     wHandle.onload = loadInit;
 })(window, window.jQuery);
