@@ -1092,7 +1092,7 @@
             this.name = name;
         },
         setSkin: function(skin) {
-            this.skin = skin;
+            this.skin = skin[0] === "%" ? skin.slice(1) : skin;
         },
         setColor: function(color) {
             this.color = color;
