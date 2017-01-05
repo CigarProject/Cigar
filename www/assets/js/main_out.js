@@ -949,7 +949,7 @@
 
         if (userScore > 0) {
             mainCtx.font = "32px Ubuntu";
-            mainCtx.fillText(scoreText, 2, 34);
+            mainCtx.fillText("Score: " + userScore, 2, 34);
             mainCtx.font = "20px Ubuntu";
             mainCtx.fillText(topText, 2, 58);
             serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60);
