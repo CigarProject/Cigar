@@ -63,6 +63,7 @@
         nodes = [];
         myNodes = [];
         deadNodes = [];
+        qTree = null;
         leaderboard = [];
         leaderboardType = "none";
         userScore = 0;
@@ -453,6 +454,7 @@
         nodes = [],
         deadNodes = [],
         myNodes = [],
+        qTree = null,
         leaderboard = [],
         leaderboardType = -1, // -1 - Not set, 48 - Text list, 49 - FFA list, 50 - Pie chart
         leaderboardCanvas = null,
@@ -505,7 +507,7 @@
 
     // Client variables
     var settings = {
-        touchable: 'createTouch' in document,
+        mobile: 'createTouch' in document,
         showMass: false,
         showNames: true,
         showLeaderboard: true,
@@ -805,14 +807,12 @@
 
         var ctx = leaderboardCanvas.getContext('2d'),
             l = leaderboard.length;
-            ctxScale = Math.min(0.22 * mainCanvas.height, Math.min(200, .3 * mainCanvas.width)) * 0.005,
             width = leaderboardType !== 50 ? 60 + 24 * l : 240,
             i = 0;
 
-        leaderboardCanvas.width = 200 * ctxScale;
-        leaderboardCanvas.height = width * ctxScale;
+        leaderboardCanvas.width = 200;
+        leaderboardCanvas.height = width;
 
-        ctx.scale(ctxScale, ctxScale);
         ctx.globalAlpha = .4;
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, 200, width);
@@ -939,6 +939,7 @@
             newDrawZoom = _cZoom;
         }
         drawZoom += (newDrawZoom * viewMult * mouseZoom - drawZoom) * .11;
+
         drawing = true;
 
         // Background
@@ -970,16 +971,17 @@
         mainCtx.scale((z1 = 1 / drawZoom), z1);
         mainCtx.translate(-tx, -ty);
 
-        mainCtx.save();
+        // Scale with viewMult for readability
+        mainCtx.scale(viewMult *= viewMult, viewMult);
 
         // Score & FPS drawing
         var topText = ~~fps + " FPS",
-            topSize = topSize = 20 / viewMult;
+            topSize = topSize = 20 * viewMult;
         if (latency !== -1) topText += ", " + latency + "ms ping";
 
         mainCtx.fillStyle = settings.darkTheme ? "#FFFFFF" : "#000000";
         if (userScore > 0) {
-            var scoreSize = 32 / viewMult;
+            var scoreSize = 32 * viewMult;
             mainCtx.font = ~~scoreSize + "px Ubuntu";
             mainCtx.fillText("Score: " + userScore, 2, 34);
             mainCtx.font = ~~topSize + "px Ubuntu";
@@ -990,12 +992,11 @@
             mainCtx.fillText(topText, 2, 22);
             serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24);
         }
-        mainCtx.restore();
-        leaderboardCanvas && mainCtx.drawImage(leaderboardCanvas, cW - leaderboardCanvas.width - 10, 10);
+        leaderboardCanvas && mainCtx.drawImage(leaderboardCanvas, cW / viewMult - leaderboardCanvas.width - 10, 10);
 
         // Chat alpha update
         if (chatMessages.length > 0) if (getChatAlpha() !== 1) drawChat();
-        chatCanvas && mainCtx.drawImage(chatCanvas, 10, cH - 50 - chatCanvas.height);
+        chatCanvas && mainCtx.drawImage(chatCanvas, 10, cH / viewMult - 50 - chatCanvas.height);
 
         drawing = false;
 
@@ -1078,7 +1079,7 @@
             }
             this.x += (this.nx - this.x) * dt;
             this.y += (this.ny - this.y) * dt;
-            this.size += (this.nSize - this.size) * (this.wasComplexDrawing ? dt * .4 : dt);
+            this.size += (this.nSize - this.size) * dt;
             this._nameSize = ~~(Math.max(~~(.3 * this.nSize), 24) / 4) * 4;
         },
         setName: function(name) {
@@ -1123,13 +1124,15 @@
                 minPointAmount = jagged ? 90 : (this.isPellet ? 5 : 16),
                 x = this.x,
                 y = this.y,
-                i = 0, p, sz, step, pt, avg;
+                maxSizeRemove = this.size * .16,
+                i = 0, sz, step, pt, px, py, temp, diff, nDiff;
 
             !this.isVirus && (pointAmount *= drawZoom);
             this.isEjected && (pointAmount *= .5);
             pointAmount = Math.max(~~pointAmount, minPointAmount);
             jagged && (pointAmount = ~~(pointAmount * .5) * 2);
 
+            step = PI_2 / pointAmount;
             var newPoints = [];
             for ( ; i < pointAmount; i++) {
                 var nDiff;
@@ -1137,25 +1140,52 @@
                     // Animate the point
                     pt = this.rigidPoints[i];
                     nDiff = pt.newDiff;
-                    p = pt.diff + (nDiff - pt.diff) * dt;
-                    if (toleranceCompare(p, nDiff, .05)) nDiff = getNextDiff(jagged, i, pointAmount, animated);
+                    diff = pt.diff + (nDiff - pt.diff) * dt;
+                    if (toleranceCompare(diff, nDiff, .05)) nDiff = getNextDiff(jagged, i, pointAmount, animated);
                 } else if (animated) {
                     // New point
                     nDiff = getNextDiff(jagged, i, pointAmount, animated);
-                    p = 0;
+                    diff = 0;
                 } else {
                     // Non-animated point
-                    p = nDiff = getNextDiff(jagged, i, pointAmount, animated);
+                    diff = nDiff = getNextDiff(jagged, i, pointAmount, animated);
                 }
-                sz = this.size + p;
-                step = PI_2 / pointAmount;
+                sz = this.size + diff;
+
+                // Calculate position
+                var sin = Math.sin(i * step), cos = Math.cos(i * step);
+                px = x + sin * sz;
+                py = y + cos * sz;
+
+                let cx = 0, cy = 0;
+                // Point collision check (doesn't work)
+                /*if (qTree) {
+                    var id = this.id,
+                        dx, dy;
+                    qTree.retrieve2(cx, cy, 1, 1, function(a) {
+                        if (a.refID !== id && 25 > (cx - a.x) * (cx - a.x) + (cy - a.y) * (cy - a.y)) {
+                            console.log('collision')
+                        }
+                    });
+                }*/
+                px += cx;
+                py += cy;
+
+                // Border check
+                if (px < border.left) cx -= sin * Math.min(border.left - px, maxSizeRemove);
+                if (px > border.right) cx -= sin * Math.min(px - border.right, maxSizeRemove);
+                if (py < border.top) cy -= cos * Math.min(border.top - py, maxSizeRemove);
+                if (py > border.bottom) cy -= cos * Math.min(py - border.bottom, maxSizeRemove);
+                px += cx;
+                py += cy;
 
                 newPoints.push({
+                    refID: this.id,
                     size: sz,
-                    diff: p,
+                    diff: diff,
                     newDiff: nDiff,
-                    x: x + Math.sin(i * step) * sz,
-                    y: y + Math.cos(i * step) * sz
+                    x: px,
+                    y: py
                 });
             }
 
@@ -1175,7 +1205,7 @@
                 if (nameDraw) drawText(this.x, this.y, this.name, this._nameSize, false);
 
                 if (settings.showMass && (myNodes.indexOf(this.id) !== -1 || myNodes.length === 0) && this.size >= 20) {
-                    var text = (~~(this.size * this.size * .01)).toString();
+                    var text = Math.ceil(this.size * this.size * .01).toString();
                     if (nameDraw)
                         drawText(this.x, this.y + Math.max(this.size * .2, this._nameSize * .6), text, this._nameSize * .5, true);
                     else
@@ -1220,6 +1250,7 @@
                 this.drawSkin();
                 mainCtx.closePath();
             } else {
+                this.rigidPoints = [];
                 if (this._meCache)
                     // Cached drawing exists - use it
                     mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
@@ -1449,6 +1480,49 @@
                 h = identical.height;
 
             mainCtx.drawImage(identical, x - w * .5, y - h * .5, w, h);
+        }
+    }
+
+    function buildQTree() {
+        if (.4 > drawZoom) qTree = null;
+        else {
+            var a = Number.POSITIVE_INFINITY,
+                b = Number.POSITIVE_INFINITY,
+                c = Number.NEGATIVE_INFINITY,
+                d = Number.NEGATIVE_INFINITY,
+                e = 0,
+                f = nodes.length,
+                added = [];
+
+            for (var i = 0; i < f; i++) {
+                var node = nodes[i];
+                if (!node) continue;
+                if (node.rigidPoints.length > 0) {
+                    e = Math.max(node.size, e);
+                    a = Math.min(node.x, a);
+                    b = Math.min(node.y, b);
+                    c = Math.max(node.x, c);
+                    d = Math.max(node.y, d);
+                    added.push(node);
+                }
+            }
+
+            qTree = Quad.init({
+                minX: a - (e + 100),
+                minY: b - (e + 100),
+                maxX: c + (e + 100),
+                maxY: d + (e + 100),
+                maxChildren: 64,
+                maxDepth: 4
+            });
+
+            f = added.length;
+            for (i = 0; i < c; i++) {
+                node = added[i];
+                if (!node) continue;
+                b = node.rigidPoints.length;
+                for (a = 0; a < b; ++a) qTree.insert(node.rigidPoints[a]);
+            }
         }
     }
 
