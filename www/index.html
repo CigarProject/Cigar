@@ -95,6 +95,13 @@
                         <label>
                             <input type="checkbox" class="save" data-box-id="7" onchange="setChatHide($(this).is(':checked'));"> Hide Chat</label>
                     </div>
+                    <select id="quality" class="form-control" onchange="setQuality($(this).val());" required>
+                        <option value="retina">Retina quality</option>
+                        <option value="high">High quality</option>
+                        <option value="medium" selected>Medium quality</option>
+                        <option value="low">Low quality</option>
+                        <option value="mobile">Mobile quality</option>
+                    </select>
                 </div>
             </form>
 
