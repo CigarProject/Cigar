@@ -5,14 +5,6 @@
     Date.now || (Date.now = function() {
         return (+new Date).getTime();
     });
-    Array.prototype.remove = function(a) {
-        let i = this.indexOf(a);
-        if (i !== -1) {
-            this.splice(i, 1);
-            return true;
-        }
-        return false;
-    };
     Array.prototype.peek = function() {
         return this[this.length - 1];
     };
@@ -140,18 +132,27 @@
                     nameColor = (r << 16 | g << 8 | b).toString(16);
                 while (nameColor.length < 6) nameColor = '0' + nameColor;
                 nameColor = '#' + nameColor;
-                name = reader.getStringUTF8();
+                name = reader.getStringUTF8().trim();
 
                 // Replace {skin} with empty string
                 var reg = /\{([\w]+)\}/.exec(name);
                 if (reg) if (reg.length === 2) name = name.replace(reg[0], "").trim();
 
+                // Prefix for mods, admins & server
+                var server = !!(flags & 0x80),
+                    admin = !!(flags & 0x40),
+                    mod = !!(flags & 0x20);
+
+                if (server && name !== "SERVER") name = "[SERVER] " + name;
+                if (admin) name = "[ADMIN] " + name;
+                if (mod) name = "[MOD] " + name;
+
                 message = reader.getStringUTF8();
                 chatAlphaWait += Math.max(2000, 1000 + message.length * 100);
                 chatMessages.push({
-                    server: !!(flags & 0x80),
-                    admin: !!(flags & 0x40),
-                    mod: !!(flags & 0x20),
+                    server: server,
+                    admin: admin,
+                    mod: mod,
                     nameColor: nameColor,
                     name: name,
                     message: message,
@@ -505,6 +506,65 @@
             esc: false
         };
 
+    // Render quality settings
+    var qualitySettings = {
+        'retina': {
+            getTextLineWidth: function(a) {
+                return a * Math.sqrt(drawZoom) > ~~(a * .1) ? ~~(a * .1) : 0;
+            },
+            cellOutline: true,
+            smoothRender: .3,
+            overrideGrid: false,
+            overrideSkins: false,
+            drawStat: true,
+            drawMassSpectate: true
+        },
+        'high': {
+            getTextLineWidth: function(a) {
+                return a * Math.sqrt(drawZoom) > ~~(a * .1) ? ~~(a * .1) : 0;
+            },
+            cellOutline: true,
+            smoothRender: .4,
+            overrideGrid: false,
+            overrideSkins: false,
+            drawStat: true,
+            drawMassSpectate: true
+        },
+        'medium': {
+            getTextLineWidth: function(a) {
+                return a * Math.sqrt(drawZoom) > ~~(a * .1) ? ~~(a * .1) : 0;
+            },
+            cellOutline: false,
+            smoothRender: .7,
+            overrideGrid: false,
+            overrideSkins: false,
+            drawStat: true,
+            drawMassSpectate: true
+        },
+        'low': {
+            getTextLineWidth: function(a) {
+                return 3;
+            },
+            cellOutline: false,
+            smoothRender: 1.3,
+            overrideGrid: true,
+            overrideSkins: false,
+            drawStat: false,
+            drawMassSpectate: false
+        },
+        'mobile': {
+            getTextLineWidth: function(a) {
+                return 0;
+            },
+            cellOutline: false,
+            smoothRender: 10,
+            overrideGrid: true,
+            overrideSkins: true,
+            drawStat: false,
+            drawMassSpectate: false
+        },
+    };
+
     // Client variables
     var settings = {
         mobile: 'createTouch' in document,
@@ -516,9 +576,16 @@
         showColor: true,
         showSkins: true,
         darkTheme: false,
-        fastRenderMax: 0.4,
-        maxScore: 0
+        fastRenderMax: .4,
+        quality: 'medium',
+        qualityRef: qualitySettings['medium'],
+        allowGETipSet: false // Whether index.html?ip=abc is accepted (not implemented)
     };
+
+    // Touches
+    var touchStartX = 0,
+        touchStartY = 0,
+        touchMove = false;
 
     // Load local storage
     if (null != wHandle.localStorage) {
@@ -575,24 +642,28 @@
         mainCtx = mainCanvas.getContext('2d');
         chatBox = document.getElementById("chat_textbox");
         mainCanvas.focus();
-        // wHandle functions
+
+        // Wheel handling
         function handleWheel(event) {
             mouseZoom *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
             1 > mouseZoom && (mouseZoom = 1);
             mouseZoom > 4 / viewZoom && (mouseZoom = 4 / viewZoom);
         }
+
         // Mouse wheel
-        if (/firefox/i.test(navigator.userAgent)) {
+        if (/firefox/i.test(navigator.userAgent))
             document.addEventListener("DOMMouseScroll", handleWheel, false);
-        } else {
+        else
             document.body.onmousewheel = handleWheel;
-        }
+
         window.onfocus = function() {
             isWindowFocused = true;
-        }
+        };
+
         window.onblur = function() {
             isWindowFocused = false;
-        }
+        };
+
         wHandle.onkeydown = function(event) {
             switch (event.keyCode) {
                 case 13: // enter
@@ -618,27 +689,27 @@
                 case 81: // Q
                     if (isTyping || escOverlay || pressed.q) break;
                     WsSend(UINT8_CACHE[18]);
-                    pressed.w = true;
+                    pressed.q = true;
                     break;
                 case 69: // E
                     if (isTyping || escOverlay || pressed.e) break;
                     WsSend(UINT8_CACHE[22]);
-                    pressed.w = true;
+                    pressed.e = true;
                     break;
                 case 82: // R
                     if (isTyping || escOverlay || pressed.r) break;
                     WsSend(UINT8_CACHE[23]);
-                    pressed.w = true;
+                    pressed.r = true;
                     break;
                 case 84: // T
                     if (isTyping || escOverlay || pressed.t) break;
                     WsSend(UINT8_CACHE[24]);
-                    pressed.w = true;
+                    pressed.t = true;
                     break;
                 case 80: // P
                     if (isTyping || escOverlay || pressed.p) break;
                     WsSend(UINT8_CACHE[25]);
-                    pressed.w = true;
+                    pressed.p = true;
                     break;
                 case 27: // esc
                     if (pressed.esc) break;
@@ -648,6 +719,7 @@
                     break;
             }
         };
+
         wHandle.onkeyup = function(event) {
             switch (event.keyCode) {
                 case 32: // space
@@ -676,27 +748,62 @@
                     pressed.esc = false;
                     break;
             }
-        }
+        };
+
         chatBox.onblur = function() {
             isTyping = false;
             drawChat();
         };
+
         chatBox.onfocus = function() {
             isTyping = true;
             drawChat();
         };
+
         mainCanvas.onmousemove = function(event) {
             rawMouseX = event.clientX;
             rawMouseY = event.clientY;
         };
+
+        setTimeout(function() {
+            // Auto quality setting
+            var a = mainCanvas.width = wHandle.innerWidth,
+                b = mainCanvas.height = wHandle.innerHeight;
+            var qualityOutput = Math.min(((a * b) / 110592), 20); // Output 1-20
+            switch (Math.round(qualityOutput)) {
+                case 20: case 19: case 18: case 17:
+                    $('#quality').val('retina');
+                    settings.qualityRef = qualitySettings[settings.quality = 'retina'];
+                    break;
+                case 16: case 15: case 14: case 13: case 12: case 11: case 10:
+                    $('#quality').val('high');
+                    settings.qualityRef = qualitySettings[settings.quality = 'high'];
+                    break;
+                case 9: case 8: case 7: case 6: case 5:
+                    $('#quality').val('medium');
+                    settings.qualityRef = qualitySettings[settings.quality = 'medium'];
+                    break;
+                case 4: case 3:
+                    $('#quality').val('low');
+                    settings.qualityRef = qualitySettings[settings.quality = 'low'];
+                    break;
+                default:
+                    $('#quality').val('mobile');
+                    settings.qualityRef = qualitySettings[settings.quality = 'mobile'];
+                    break;
+            }
+            log.debug("Auto-quality " + settings.quality + " for window size " + mainCanvas.width + "x" +
+                mainCanvas.height + ", quality value " + Math.round(qualityOutput) + " (real " + qualityOutput + "), view multiplier " + viewMultiplier());
+        }, 100);
+
         setInterval(function() {
             // Mouse update
             SendMouseMove((rawMouseX - mainCanvas.width / 2) / drawZoom + centerX,
                 (rawMouseY - mainCanvas.height / 2) / drawZoom + centerY);
         }, 40);
-        wHandle.onresize = canvasResize;
-        canvasResize();
+
         log.info("Loaded, took " + (Date.now() - LOAD_START) + " ms");
+
         if (window.requestAnimationFrame)
             window.requestAnimationFrame(drawLoop);
         else
@@ -711,6 +818,14 @@
             diff = now - lastMsg.time;
 
         return 1 - Math.min(Math.max((diff - chatAlphaWait) * .001, 0), 1);
+    }
+
+    function drawTouch() {
+        if (touchMove) {
+            mainCtx.save();
+            mainCtx.beginPath();
+            mainCtx.arc(touchStartX, touchStartY, 10, 0, PI_2, false)
+        }
     }
 
     function drawChat() {
@@ -862,7 +977,7 @@
         mainCtx.save();
         mainCtx.strokeStyle = settings.darkTheme ? "#AAAAAA" : "#000000";
         mainCtx.globalAlpha = .2;
-        var step = 50,
+        var step = 50
             cW = mainCanvas.width / drawZoom, cH = mainCanvas.height / drawZoom,
             startLeft = (-centerX + cW * .5) % step,
             startTop = (-centerY + cH * .5) % step,
@@ -890,12 +1005,11 @@
         window.requestAnimationFrame(drawLoop);
     }
 
-    function drawGame(normal) {
-        if (normal) {
-            var dr = Date.now(), passed;
-            fps += (1000 / (passed = dr - lastDrawTime) - fps) * .1;
-            lastDrawTime = dr;
-        }
+    function drawGame() {
+        var dr = Date.now(), passed;
+        fps += (1000 / (passed = dr - lastDrawTime) - fps) * .1;
+        lastDrawTime = dr;
+        isNaN(fps) && (fps = 0);
 
         var cW = mainCanvas.width = wHandle.innerWidth,
             cH = mainCanvas.height = wHandle.innerHeight,
@@ -904,6 +1018,9 @@
             newDrawZoom = 0,
             viewMult = viewMultiplier(),
             i, l = myNodes.length, n, newScore = 0;
+
+
+        var nodesCopy = nodes.concat(deadNodes);
 
         // Zoom, position & score update
         if (l > 0) {
@@ -951,19 +1068,18 @@
         var tx, ty, z1;
 
         // Grid
-        if (settings.showGrid) drawGrid();
+        if (settings.showGrid && !settings.qualityRef.overrideGrid) drawGrid();
 
         // Scale & translate for cell drawing
-        mainCtx.translate((tx = cW2 - centerX * drawZoom + .5), (ty = cH2 - centerY * drawZoom + .5));
+        mainCtx.translate((tx = cW2 - centerX * drawZoom), (ty = cH2 - centerY * drawZoom));
         mainCtx.scale(drawZoom, drawZoom);
 
-        var a = nodes.concat(deadNodes);
-        a.sort(nodeSort);
+        nodesCopy.sort(nodeSort);
 
         // Draw cells
-        l = a.length;
+        l = nodesCopy.length;
         for (i = 0; i < l; i++) {
-            n = a[i];
+            n = nodesCopy[i];
             n.draw(dr);
         }
 
@@ -972,7 +1088,7 @@
         mainCtx.translate(-tx, -ty);
 
         // Scale with viewMult for readability
-        mainCtx.scale(viewMult *= viewMult, viewMult);
+        mainCtx.scale(viewMult, viewMult);
 
         // Score & FPS drawing
         var topText = ~~fps + " FPS",
@@ -986,17 +1102,23 @@
             mainCtx.fillText("Score: " + userScore, 2, 34);
             mainCtx.font = ~~topSize + "px Ubuntu";
             mainCtx.fillText(topText, 2, 58);
-            serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60);
+            settings.qualityRef.drawStat && serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60);
         } else {
             mainCtx.font = ~~topSize + "px Ubuntu";
             mainCtx.fillText(topText, 2, 22);
-            serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24);
+            settings.qualityRef.drawStat && serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24);
         }
         leaderboardCanvas && mainCtx.drawImage(leaderboardCanvas, cW / viewMult - leaderboardCanvas.width - 10, 10);
 
         // Chat alpha update
         if (chatMessages.length > 0) if (getChatAlpha() !== 1) drawChat();
-        chatCanvas && mainCtx.drawImage(chatCanvas, 10, cH / viewMult - 50 - chatCanvas.height);
+        chatCanvas && mainCtx.drawImage(chatCanvas, 10, (cH - 50) / viewMult - chatCanvas.height);
+
+        // Scale back to normal
+        mainCtx.scale(viewMult = 1 / viewMult, viewMult);
+
+        // Draw touches
+        drawTouch();
 
         drawing = false;
 
@@ -1008,13 +1130,7 @@
     }
 
     function viewMultiplier() {
-        return Math.max(mainCanvas.height / 1080, mainCanvas.width / 1920);
-    }
-
-    function canvasResize() {
-        window.scrollTo(0, 0);
-        mainCanvas.width = wHandle.innerWidth;
-        mainCanvas.height = wHandle.innerHeight;
+        return Math.sqrt(Math.max(mainCanvas.height / 1080, mainCanvas.width / 1920));
     }
 
     function Cell(id, x, y, size, name, color, skin, time, flags) {
@@ -1048,7 +1164,6 @@
         birthStamp: -1,
         deathStamp: -1,
         appStamp: -1,
-        _ts: -1,
         nx: 0,
         ny: 0,
         nSize: 0,
@@ -1064,13 +1179,12 @@
         _meCache: null, // If it's a pellet it'll draw from this cache
         _meW: null,
         _meH: null,
-        _nameTxt: null,
-        _massTxt: null,
         updateAppearance: function(time, dt) {
             if (this.destroyed)
                 if (time - this.deathStamp > 200 || !this.killer || this.size < 4) {
                     // Fully remove
-                    deadNodes.remove(this);
+                    var i;
+                    ((i = deadNodes.indexOf(this)) > -1) && deadNodes.splice(i, 1);
                 }
             if (this.killer) {
                 this.nx = this.killer.x;
@@ -1092,7 +1206,7 @@
             this.name = name;
         },
         setSkin: function(skin) {
-            this.skin = skin[0] === "%" ? skin.slice(1) : skin;
+            this.skin = skin[0] === "%" ? skin.replace("%", "") : skin;
         },
         setColor: function(color) {
             this.color = color;
@@ -1106,8 +1220,10 @@
         },
         destroy: function(time) {
             delete nodesID[this.id];
-            nodes.remove(this);
-            if (myNodes.remove(this.id) && myNodes.length === 0) {
+            var i;
+            ((i = nodes.indexOf(this)) !== -1) && nodes.splice(i, 1);
+            ((i = myNodes.indexOf(this.id)) !== -1) && myNodes.splice(i, 1);
+            if (i > -1 && myNodes.length === 0) {
                 _cX = centerX;
                 _cY = centerY;
                 _cZoom = viewZoom;
@@ -1157,7 +1273,7 @@
                 px = x + sin * sz;
                 py = y + cos * sz;
 
-                let cx = 0, cy = 0;
+                var cx = 0, cy = 0;
                 // Point collision check (doesn't work)
                 /*if (qTree) {
                     var id = this.id,
@@ -1204,10 +1320,12 @@
                 var nameDraw = settings.showNames && this.name !== "" && !this.isVirus;
                 if (nameDraw) drawText(this.x, this.y, this.name, this._nameSize, false);
 
-                if (settings.showMass && (myNodes.indexOf(this.id) !== -1 || myNodes.length === 0) && this.size >= 20) {
+                if (settings.showMass && (myNodes.indexOf(this.id) !== -1 ||
+                    (myNodes.length === 0 && settings.qualityRef.drawMassSpectate)) && this.size >= 20) {
+
                     var text = Math.ceil(this.size * this.size * .01).toString();
                     if (nameDraw)
-                        drawText(this.x, this.y + Math.max(this.size * .2, this._nameSize * .6), text, this._nameSize * .5, true);
+                        drawText(this.x, this.y + Math.max(this.size * .22, this._nameSize * .8), text, this._nameSize * .5, true);
                     else
                         drawText(this.x, this.y, text, this._nameSize * .5, true);
                 }
@@ -1218,7 +1336,7 @@
             var complex = this.wasComplexDrawing = settings.fastRenderMax <= drawZoom,
                 jagged = this.isVirus;
 
-            mainCtx.lineWidth = this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0;
+            mainCtx.lineWidth = settings.qualityRef.cellOutline ? (this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0) : 0;
             mainCtx.lineCap = "round";
             mainCtx.lineJoin = jagged ? "miter" : "round";
             mainCtx.fillStyle = settings.showColor ? this.color : "#FFFFFF";
@@ -1229,7 +1347,7 @@
                 this.updatePoints(complex, jagged, dt);
                 var points = this.rigidPoints;
 
-                mainCtx.lineTo(
+                mainCtx.moveTo(
                     points[0].x,
                     points[0].y
                 );
@@ -1256,15 +1374,17 @@
                     mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
                 else {
                     mainCtx.beginPath();
-                    mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * 0.5 + 1, 0, PI_2, false);
+                    mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * .5 + .5, 0, PI_2, false);
                     mainCtx.fill();
-                    mainCtx.stroke();
+                    settings.qualityRef.cellOutline && mainCtx.stroke();
                     this.drawSkin();
                     mainCtx.closePath();
                 }
             }
         },
         drawSkin: function() {
+            if (settings.qualityRef.overrideSkins) return;
+
             var skin = this.skin || this.nameSkin;
 
             if (settings.showSkins && skin != '' && -1 !== knownSkins.indexOf(skin)) {
@@ -1332,22 +1452,21 @@
     function newTextCache(value, size) {
         var canvas = document.createElement('canvas'),
             ctx = canvas.getContext('2d'),
-            lineWidth = ~~(size * .1);
+            lineWidth = settings.qualityRef.getTextLineWidth(size);
 
         // Why set font twice???
         ctx.font = size + 'px Ubuntu';
         canvas.width = (ctx.measureText(value).width + lineWidth) + 3;
-        canvas.height = size + lineWidth * 5;
+        canvas.height = (size * 1.2 + lineWidth);
         ctx.font = size + 'px Ubuntu';
-        ctx.fillStyle = "#FFFFFF";
+        ctx.fillStyle = lineWidth === 0 && !settings.showColor ? "#000000" : "#FFFFFF";
         ctx.lineWidth = lineWidth;
         ctx.strokeStyle = "#000000";
 
-        ctx.strokeText(value, lineWidth, size);
+        (lineWidth > 0) && ctx.strokeText(value, lineWidth, size);
         ctx.fillText(value, lineWidth, size);
 
         (!textCache[value]) && (textCache[value] = { });
-        (!textCache[value][size]) && (textCache[value][size] = []);
         textCache[value][size] = {
             canvas: canvas,
             accessTime: Date.now()
@@ -1370,25 +1489,24 @@
                 { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 9
             ],
             i = 0,
-            lineWidth = ~~(size * .1),
+            lineWidth = settings.qualityRef.getTextLineWidth(size),
             ctx, canvas, height = size + lineWidth * 5 + 2;
 
         for ( ; i < 10; i++) {
             canvas = canvasList[i].c;
             ctx = canvasList[i].t;
             ctx.font = size + 'px Ubuntu';
-            canvasList[i].w = (canvas.width = ctx.measureText(i).width + lineWidth * 2) - lineWidth * 2;
+            canvasList[i].w = (canvas.width = ctx.measureText(i).width + lineWidth * 3) - lineWidth * 3;
             canvas.height = height;
             ctx.font = size + 'px Ubuntu';
-            ctx.fillStyle = "#FFFFFF";
+            ctx.fillStyle = lineWidth === 0 && !settings.showColor ? "#000000" : "#FFFFFF";
             ctx.lineWidth = lineWidth;
             ctx.strokeStyle = "#000000";
 
-            ctx.strokeText(i, lineWidth, size);
+            (lineWidth > 0) && ctx.strokeText(i, lineWidth, size);
             ctx.fillText(i, lineWidth, size);
         }
 
-        (!massCache[size]) && (massCache[size] = { });
         massCache[size] = {
             canvasList: canvasList,
             height: height,
@@ -1544,17 +1662,31 @@
     };
     wHandle.setColors = function(a) {
         settings.showColor = !a;
+        if (settings.qualityRef.getTextLineWidth(100) === 0) {
+            // Reset caches since if setColors is false all text is black
+            textCache = { };
+            massCache = { };
+        }
     };
     wHandle.setNames = function(a) {
         settings.showNames = a;
         drawLeaderboard();
     };
     wHandle.setSmooth = function(a) {
-        settings.fastRenderMax = a ? 4 : 0.4;
+        settings.fastRenderMax = a ? 4 : settings.qualityRef.smoothRender;
     };
     wHandle.setChatHide = function(a) {
         settings.showChat = !a;
         drawChat();
+    };
+    wHandle.setQuality = function(a) {
+        if (qualitySettings[a] && settings.quality !== a) {
+            settings.quality = a;
+            settings.qualityRef = qualitySettings[a];
+            settings.fastRenderMax = settings.fastRenderMax == 4 ? 4 : settings.qualityRef.smoothRender;
+            textCache = { };
+            massCache = { };
+        }
     };
     wHandle.spectate = function(a) {
         WsSend(UINT8_CACHE[1]);
@@ -1565,7 +1697,7 @@
         Play(a);
         hideESCOverlay();
     };
-    wHandle.openSkinsList = function(arg) {
+    wHandle.openSkinsList = function() {
         if ($('#inPageModalTitle').text() != "Skins") {
             $.get('include/gallery.php').then(function(data) {
                 $('#inPageModalTitle').text("Skins");
