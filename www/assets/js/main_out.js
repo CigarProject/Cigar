@@ -148,7 +148,7 @@
                 if (mod) name = "[MOD] " + name;
 
                 message = reader.getStringUTF8();
-                chatAlphaWait += Math.max(2000, 1000 + message.length * 100);
+                chatAlphaWait += Math.max(3000, 1000 + message.length * 150);
                 chatMessages.push({
                     server: server,
                     admin: admin,
@@ -425,6 +425,7 @@
                         message: "/setsetting - Set a graphics option",
                         time: Date.now()
                     });
+                    chatAlphaWait += 10000;
                 } else if (v === "/connect") {
                     Connect(s[1]);
                 } else if (v === "/setsetting") {
@@ -495,6 +496,7 @@
         serverStatID = null,
         serverStats = null,
         serverStatCanvas = null,
+        _viewMult = 1,
         pressed = {
             space: false,
             w: false,
@@ -510,7 +512,7 @@
     var qualitySettings = {
         'retina': {
             getTextLineWidth: function(a) {
-                return a * Math.sqrt(drawZoom) > ~~(a * .1) ? ~~(a * .1) : 0;
+                return a * .1;
             },
             cellOutline: true,
             smoothRender: .3,
@@ -521,7 +523,7 @@
         },
         'high': {
             getTextLineWidth: function(a) {
-                return a * Math.sqrt(drawZoom) > ~~(a * .1) ? ~~(a * .1) : 0;
+                return a * .1;
             },
             cellOutline: true,
             smoothRender: .4,
@@ -532,7 +534,7 @@
         },
         'medium': {
             getTextLineWidth: function(a) {
-                return a * Math.sqrt(drawZoom) > ~~(a * .1) ? ~~(a * .1) : 0;
+                return a * .1;
             },
             cellOutline: false,
             smoothRender: .7,
@@ -543,7 +545,7 @@
         },
         'low': {
             getTextLineWidth: function(a) {
-                return 3;
+                return 3.1;
             },
             cellOutline: false,
             smoothRender: 1.3,
@@ -769,17 +771,17 @@
             // Auto quality setting
             var a = mainCanvas.width = wHandle.innerWidth,
                 b = mainCanvas.height = wHandle.innerHeight;
-            var qualityOutput = Math.min(((a * b) / 110592), 20); // Output 1-20
+            var qualityOutput = Math.min(((a * b) / 178000), 20); // Output 1-20
             switch (Math.round(qualityOutput)) {
                 case 20: case 19: case 18: case 17:
                     $('#quality').val('retina');
                     settings.qualityRef = qualitySettings[settings.quality = 'retina'];
                     break;
-                case 16: case 15: case 14: case 13: case 12: case 11: case 10:
+                case 16: case 15: case 14: case 13: case 12: case 11:
                     $('#quality').val('high');
                     settings.qualityRef = qualitySettings[settings.quality = 'high'];
                     break;
-                case 9: case 8: case 7: case 6: case 5:
+                case 10: case 9: case 8: case 7: case 6: case 5:
                     $('#quality').val('medium');
                     settings.qualityRef = qualitySettings[settings.quality = 'medium'];
                     break;
@@ -801,6 +803,14 @@
             SendMouseMove((rawMouseX - mainCanvas.width / 2) / drawZoom + centerX,
                 (rawMouseY - mainCanvas.height / 2) / drawZoom + centerY);
         }, 40);
+
+        wHandle.onresize = function() {
+            var cW = mainCanvas.width = wHandle.innerWidth,
+                cH = mainCanvas.height = wHandle.innerHeight;
+            _viewMult = Math.max(cH / 1080, cW / 1920);
+        };
+
+        wHandle.onresize();
 
         log.info("Loaded, took " + (Date.now() - LOAD_START) + " ms");
 
@@ -1130,7 +1140,7 @@
     }
 
     function viewMultiplier() {
-        return Math.sqrt(Math.max(mainCanvas.height / 1080, mainCanvas.width / 1920));
+        return _viewMult;
     }
 
     function Cell(id, x, y, size, name, color, skin, time, flags) {
@@ -1411,7 +1421,7 @@
 
     function getNextDiff(jagged, index, pointAmount, animated) {
         if (animated) {
-            var maxDiff = jagged ? 3 : 1.7 / Math.max(drawZoom, 1) * .6;
+            var maxDiff = jagged ? 3 : 1.7 * .6;
             if (jagged) return (index % 2 === 1 ? -maxDiff : maxDiff) + Math.random() - 1.5;
             return (Math.random() - .5) * maxDiff * 2;
         }
@@ -1584,7 +1594,7 @@
             // Measure half-width
             for ( ; i < str.length; i++)
                 maxW += identical.canvasList[parseInt(str[i])].w;
-            x -= maxW / 2;
+            x -= maxW * .5;
 
             // Draw char by char
             for (i = 0; i < str.length; i++) {
@@ -1593,7 +1603,7 @@
                 x += currentNumber.w;
             }
         } else {
-            identical = findTextMatch(value, size, isMass),
+            identical = findTextMatch(value, size),
                 w = identical.width,
                 h = identical.height;
 
