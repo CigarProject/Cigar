@@ -575,6 +575,7 @@
         showLeaderboard: true,
         showChat: true,
         showGrid: true,
+        showTextOutline: true,
         showColor: true,
         showSkins: true,
         darkTheme: false,
@@ -1462,19 +1463,19 @@
     function newTextCache(value, size) {
         var canvas = document.createElement('canvas'),
             ctx = canvas.getContext('2d'),
-            lineWidth = settings.qualityRef.getTextLineWidth(size);
+            lineWidth = settings.showTextOutline ? settings.qualityRef.getTextLineWidth(size) : 0;
 
         // Why set font twice???
         ctx.font = size + 'px Ubuntu';
-        canvas.width = (ctx.measureText(value).width + lineWidth) + 3;
-        canvas.height = (size * 1.2 + lineWidth);
+        canvas.width = ctx.measureText(value).width;
+        canvas.height = size * 1.2;
         ctx.font = size + 'px Ubuntu';
         ctx.fillStyle = lineWidth === 0 && !settings.showColor ? "#000000" : "#FFFFFF";
         ctx.lineWidth = lineWidth;
         ctx.strokeStyle = "#000000";
 
-        (lineWidth > 0) && ctx.strokeText(value, lineWidth, size);
-        ctx.fillText(value, lineWidth, size);
+        (lineWidth > 0) && ctx.strokeText(value, 0, size);
+        ctx.fillText(value, 0, size);
 
         (!textCache[value]) && (textCache[value] = { });
         textCache[value][size] = {
@@ -1499,7 +1500,7 @@
                 { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 9
             ],
             i = 0,
-            lineWidth = settings.qualityRef.getTextLineWidth(size),
+            lineWidth = settings.showTextOutline ? settings.qualityRef.getTextLineWidth(size) : 0,
             ctx, canvas, height = size + lineWidth * 5 + 2;
 
         for ( ; i < 10; i++) {
@@ -1582,6 +1583,8 @@
     }
 
     function drawText(x, y, value, size, isMass) {
+        if (size > 5000) return; // Integrity check
+
         var identical;
         if (isMass) {
             identical = findMassMatch(size);
@@ -1688,6 +1691,11 @@
     wHandle.setChatHide = function(a) {
         settings.showChat = !a;
         drawChat();
+    };
+    wHandle.setTextOutline = function(a) {
+        settings.showTextOutline = !a;
+        textCache = { };
+        massCache = { };
     };
     wHandle.setQuality = function(a) {
         if (qualitySettings[a] && settings.quality !== a) {
