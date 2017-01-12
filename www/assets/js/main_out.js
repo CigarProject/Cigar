@@ -559,7 +559,7 @@
                 return 0;
             },
             cellOutline: false,
-            smoothRender: 10,
+            smoothRender: Infinity,
             overrideGrid: true,
             overrideSkins: true,
             drawStat: false,
@@ -1028,45 +1028,10 @@
             cH2 = cH / 2,
             newDrawZoom = 0,
             viewMult = viewMultiplier(),
-            i, l = myNodes.length, n, newScore = 0;
+            i, l;
 
 
         var nodesCopy = nodes.concat(deadNodes);
-
-        // Zoom, position & score update
-        if (l > 0) {
-            var ncX = 0,
-                ncY = 0;
-            var rl = 0;
-            viewZoom = 0;
-            for (i = 0; i < l; i++) {
-                n = nodesID[myNodes[i]];
-                if (!n) continue;
-                viewZoom += n.size;
-                newScore += ~~(n.nSize * n.nSize * .01);
-                ncX += n.x;
-                ncY += n.y;
-                rl++;
-            }
-            if (rl > 0) {
-                userScore = Math.max(newScore, userScore);
-                ncX /= rl;
-                ncY /= rl;
-                centerX += (ncX - centerX) * .4;
-                centerY += (ncY - centerY) * .4;
-                viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
-                newDrawZoom = viewZoom;
-            } else {
-                // Cells haven't been added yet
-                viewZoom = 1;
-                newDrawZoom = 1;
-            }
-        } else {
-            centerX += (_cX - centerX) * .02;
-            centerY += (_cY - centerY) * .02;
-            newDrawZoom = _cZoom;
-        }
-        drawZoom += (newDrawZoom * viewMult * mouseZoom - drawZoom) * .11;
 
         drawing = true;
 
@@ -1103,21 +1068,21 @@
 
         // Score & FPS drawing
         var topText = ~~fps + " FPS",
-            topSize = topSize = 20 * viewMult;
+            topSize = 20 * viewMult;
         if (latency !== -1) topText += ", " + latency + "ms ping";
 
         mainCtx.fillStyle = settings.darkTheme ? "#FFFFFF" : "#000000";
         if (userScore > 0) {
             var scoreSize = 32 * viewMult;
             mainCtx.font = ~~scoreSize + "px Ubuntu";
-            mainCtx.fillText("Score: " + userScore, 2, 34);
+            mainCtx.fillText("Score: " + userScore, 2, 32 * viewMult);
             mainCtx.font = ~~topSize + "px Ubuntu";
-            mainCtx.fillText(topText, 2, 58);
-            settings.qualityRef.drawStat && serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60);
+            mainCtx.fillText(topText, 2, 58 * viewMult);
+            settings.qualityRef.drawStat && serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60 * viewMult);
         } else {
             mainCtx.font = ~~topSize + "px Ubuntu";
-            mainCtx.fillText(topText, 2, 22);
-            settings.qualityRef.drawStat && serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24);
+            mainCtx.fillText(topText, 2, 22 * viewMult);
+            settings.qualityRef.drawStat && serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24 * viewMult);
         }
         leaderboardCanvas && mainCtx.drawImage(leaderboardCanvas, cW / viewMult - leaderboardCanvas.width - 10, 10);
 
@@ -1134,6 +1099,50 @@
         drawing = false;
 
         garbageCollection();
+        viewUpdate();
+    }
+
+    function viewUpdate() {
+        // Zoom, position & score update
+        var l = myNodes.length,
+            newDrawZoom,
+            viewMult = viewMultiplier(),
+            newScore = 0;
+
+        if (l > 0) {
+            var ncX = 0,
+                ncY = 0;
+            var rl = 0;
+            viewZoom = 0;
+            for (i = 0; i < l; i++) {
+                n = nodesID[myNodes[i]];
+                if (!n) continue;
+                viewZoom += n.size;
+                newScore += ~~(n.nSize * n.nSize * .01);
+                ncX += n.x;
+                ncY += n.y;
+                rl++;
+            }
+            //console.log(rl, ncX, ncY);
+            if (rl > 0) {
+                userScore = Math.max(newScore, userScore);
+                ncX /= rl;
+                ncY /= rl;
+                centerX += (~~ncX - centerX) * .4;
+                centerY += (~~ncY - centerY) * .4;
+                viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
+                newDrawZoom = viewZoom;
+            } else {
+                // Cells haven't been added yet
+                viewZoom = 1;
+                newDrawZoom = 1;
+            }
+        } else {
+            centerX += (_cX - centerX) * .02;
+            centerY += (_cY - centerY) * .02;
+            newDrawZoom = _cZoom;
+        }
+        drawZoom += (newDrawZoom * viewMult * mouseZoom - drawZoom) * .11;
     }
 
     function nodeSort(a, b) {
