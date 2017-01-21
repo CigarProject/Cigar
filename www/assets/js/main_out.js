@@ -426,13 +426,17 @@
                         time: Date.now()
                     });
                     chatAlphaWait += 10000;
+                    drawChat();
+                    return;
                 } else if (v === "/connect") {
                     Connect(s[1]);
+                    drawChat();
+                    return;
                 } else if (v === "/setsetting") {
                     settings[s[2]] = s[3];
+                    drawChat();
+                    return;
                 }
-                drawChat();
-                return;
             }
         }
         var writer = new Writer();
