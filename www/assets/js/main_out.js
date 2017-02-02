@@ -812,7 +812,7 @@
         wHandle.onresize = function() {
             var cW = mainCanvas.width = wHandle.innerWidth,
                 cH = mainCanvas.height = wHandle.innerHeight;
-            _viewMult = Math.max(cH / 1080, cW / 1920);
+            _viewMult = Math.min(cH / 1080, cW / 1920);
         };
 
         wHandle.onresize();
