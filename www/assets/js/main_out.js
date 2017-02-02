@@ -1050,6 +1050,15 @@
         // Grid
         if (settings.showGrid && !settings.qualityRef.overrideGrid) drawGrid();
 
+        // Update size & position & view update
+        l = nodesCopy.length;
+        for (i = 0; i < l; i++) {
+            n = nodesCopy[i];
+            dt = Math.max(Math.min((dr - n.appStamp) / 120, 1), 0)
+            n.updateAppearance(dr, dt);
+        }
+        viewUpdate();
+
         // Scale & translate for cell drawing
         mainCtx.translate((tx = cW2 - centerX * drawZoom), (ty = cH2 - centerY * drawZoom));
         mainCtx.scale(drawZoom, drawZoom);
@@ -1103,7 +1112,6 @@
         drawing = false;
 
         garbageCollection();
-        viewUpdate();
     }
 
     function viewUpdate() {
@@ -1333,9 +1341,7 @@
         },
         draw: function(time) {
             var dt = Math.min(Math.max((time - this.appStamp) / 120, 0), 1);
-            this.updateAppearance(time, dt);
             this.appStamp = time;
-
             mainCtx.save();
             this.drawShape(dt);
 
