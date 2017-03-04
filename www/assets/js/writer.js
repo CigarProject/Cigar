@@ -41,36 +41,9 @@ Writer.prototype = {
         for (var i = 0; i < b; i++) this._b.push(__buf.getUint8(i));
     },
     setStringUTF8: function(s) {
-        // Thanks to Damian from StackOverflow
-        // Original can be found at http://stackoverflow.com/questions/18729405
-        var utf8 = [];
-        for (var i = 0, l = s.length; i < l; i++) {
-            var ch = s.charCodeAt(i);
-            if (ch < 0x80) utf8.push(ch);
-            else if (ch < 0x800) {
-                utf8.push(0xc0 | (ch >> 6),
-                          0x80 | (ch & 0x3f));
-            }
-            else if (ch < 0xd800 || ch >= 0xe000) {
-                utf8.push(0xe0 | (ch >> 12),
-                          0x80 | ((ch>>6) & 0x3f),
-                          0x80 | (ch & 0x3f));
-            }
-            // surrogate pair
-            else {
-                i++;
-                // UTF-16 encodes 0x10000-0x10FFFF by
-                // subtracting 0x10000 and splitting the
-                // 20 bits of 0x0-0xFFFFF into two halves
-                ch = 0x10000 + (((ch & 0x3ff) << 10)
-                          | (s.charCodeAt(i) & 0x3ff))
-                utf8.push(0xf0 | (ch >> 18),
-                          0x80 | ((ch >> 12) & 0x3f),
-                          0x80 | ((ch >> 6) & 0x3f),
-                          0x80 | (ch & 0x3f));
-            }
-        }
-        this._b = this._b.concat(utf8);
+        var bytesStr = unescape(encodeURIComponent(s));
+        for (var i = 0, l = bytesStr.length; i < l; i++) this._b.push(bytesStr.charCodeAt(i));
+        this._b.push(0);
     },
     build: function() {
         return new Uint8Array(this._b);
