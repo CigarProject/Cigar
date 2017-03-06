@@ -31,7 +31,8 @@ Contributions are appreciated in the form of pull requests. However, to maintain
       ...
   }
   
-  if(condition){
+  if (condition)
+  {
       ...
   }
   ```
