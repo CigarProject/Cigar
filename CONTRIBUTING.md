@@ -31,6 +31,7 @@ Contributions are appreciated in the form of pull requests. However, to maintain
       ...
   }
   
+  // Bad
   if (condition)
   {
       ...
