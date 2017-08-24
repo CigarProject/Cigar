@@ -1426,8 +1426,10 @@
                 // Set skin to draw
                 if (0 != loadedSkins[skin].width && loadedSkins[skin].complete) {
                     loadedSkins[skin].accessTime = Date.now();
+					mainCtx.save();
                     mainCtx.clip();
                     mainCtx.drawImage(loadedSkins[skin], this.x - this.size, this.y - this.size, 2 * this.size, 2 * this.size);
+					mainCtx.restore();
                 }
             }
         }
