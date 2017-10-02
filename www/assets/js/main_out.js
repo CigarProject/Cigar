@@ -5,6 +5,7 @@
     Date.now || (Date.now = function() {
         return (+new Date).getTime();
     });
+	var LOAD_START = Date.now();
     Array.prototype.peek = function() {
         return this[this.length - 1];
     };
