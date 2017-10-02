@@ -14,7 +14,6 @@
         if (i !== -1) this.splice(i, 1);
         return i !== -1;
     };
-    function noop() { }
     function bytesToColor(r, g, b) {
         var r1 = ("00" + (~~r).toString(16)).slice(-2);
         var g1 = ("00" + (~~g).toString(16)).slice(-2);
