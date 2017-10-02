@@ -8,15 +8,37 @@
     Array.prototype.peek = function() {
         return this[this.length - 1];
     };
-    var CONNECT_TO,
+    Array.prototype.remove = function(a) {
+        var i = this.indexOf(a);
+        if (i !== -1) this.splice(i, 1);
+        return i !== -1;
+    };
+    function noop() { }
+    function bytesToColor(r, g, b) {
+        var r1 = ("00" + (~~r).toString(16)).slice(-2);
+        var g1 = ("00" + (~~g).toString(16)).slice(-2);
+        var b1 = ("00" + (~~b).toString(16)).slice(-2);
+        return `#${r1}${g1}${b1}`;
+    }
+    function colorToBytes(color) {
+        if (color.length === 4)
+            return { r: parseInt(color[1] + color[1], 16), g: parseInt(color[2] + color[2], 16), b: parseInt(color[3] + color[3], 16) };
+        else if (color.length === 7)
+            return { r: parseInt(color[1] + color[2], 16), g: parseInt(color[3] + color[4], 16), b: parseInt(color[5] + color[6], 16) };
+        throw new Error(`invalid color ${color}`);
+    }
+    function darkenColor(color) {
+        var a = colorToBytes(color);
+        return bytesToColor(a.r * .9, a.g * .9, a.b * .9);
+    }
+    function cleanupObject(object) {
+        for (var i in object)
+            delete object[i];
+    }
+
+    var wsUrl = null,
         SKIN_URL = "./skins/",
         USE_HTTPS = "https:" == wHandle.location.protocol,
-        BORDER_DEFAULT = {
-            top: -2E3,
-            left: -2E3,
-            right: 2E3,
-            bottom: 2E3
-        },
         PI_2 = Math.PI * 2,
         SEND_254 = new Uint8Array([254, 6, 0, 0, 0]),
         SEND_255 = new Uint8Array([255, 1, 0, 0, 0]),
@@ -30,115 +52,194 @@
             23: new Uint8Array([23]),
             24: new Uint8Array([24]),
             254: new Uint8Array([254])
-        }
-        FPS_MAXIMUM = 1000,
-        ws = null,
-        disconnectDelay = 1;
+        };
 
-    function Disconnect() {
+    function wsCleanup() {
         if (!ws) return;
+        log.debug("ws cleanup trigger");
         ws.onopen = null;
         ws.onmessage = null;
         ws.onerror = null;
         ws.onclose = null;
         ws.close();
-        if (serverStatID) {
-            clearInterval(serverStatID);
-            serverStatID = null;
-        }
         ws = null;
-        resetGameVariables();
     }
-
-    function resetGameVariables() {
-        nodesID = { };
-        nodes = [];
-        myNodes = [];
-        deadNodes = [];
-        qTree = null;
-        leaderboard = [];
-        leaderboardType = "none";
-        userScore = 0;
-        centerX = 0;
-        centerY = 0;
-        lastMessageTime = -1;
-        latency = -1;
-        _cX = 0;
-        _cY = 0;
-        _cZoom = 1;
-        mapCenterSet = false;
-        border = BORDER_DEFAULT;
-        loadedSkins = [];
-        viewZoom = 1;
-        userName = "";
-        chatText = "";
-        gameType = -1;
-        serverVersion = "Unknown";
-        serverStats = null;
-        leaderboardCanvas = null;
-        serverStatCanvas = null;
-    }
-
-    function Connect(to) {
-        if (ws) Disconnect();
+    function wsInit(url) {
+        if (ws) {
+            log.debug("ws init on existing conn");
+            wsCleanup();
+        }
         wjQuery("#connecting").show();
-        ws = new WebSocket((USE_HTTPS ? "wss://" : "ws://") + (CONNECT_TO = to));
+        ws = new WebSocket(`ws${USE_HTTPS ? "s" : ""}://${wsUrl = url}`);
         ws.binaryType = "arraybuffer";
-        ws.onopen = WsOpen;
-        ws.onmessage = WsMessage;
-        ws.onerror = WsError;
-        ws.onclose = WsClose;
-        log.debug("Connecting to " + to);
+        ws.onopen = wsOpen;
+        ws.onmessage = wsMessage;
+        ws.onerror = wsError;
+        ws.onclose = wsClose;
     }
-
-    function WsOpen() {
-        disconnectDelay = 1;
+    function wsOpen() {
+        disconnectDelay = 1000;
         wjQuery("#connecting").hide();
-        WsSend(SEND_254);
-        WsSend(SEND_255);
-        serverVersion = "Unknown";
-        log.debug("Connected to " + CONNECT_TO);
-        log.debug("HTTPS: " + USE_HTTPS);
-        chatMessages.push({
-            server: false,
-            admin: false,
-            mod: false,
-            nameColor: "#33BB33",
-            name: "Cigar",
-            message: "Connected to " + CONNECT_TO,
-            time: Date.now()
-        });
-        lastMessageTime = Date.now();
-        drawChat();
+        wsSend(SEND_254);
+        wsSend(SEND_255);
+        log.debug(`ws connected, using https: ${USE_HTTPS}`);
     }
+    function wsError(error) {
+        log.warn(error);
+    }
+    function wsClose(e) {
+        log.debug(`ws disconnected ${e.code} '${e.reason}'`);
+        wsCleanup();
+        gameReset();
+        setTimeout(function() {
+            if (ws && ws.readyState === 1) return;
+            wsInit(wsUrl);
+        }, disconnectDelay *= 1.5);
+    }
+    function wsSend(data) {
+        if (!ws) return;
+        if (ws.readyState !== 1) return;
+        if (data.build) ws.send(data.build());
+        else ws.send(data);
+    }
+    function wsMessage(data) {
+        syncUpdStamp = Date.now();
+        var reader = new Reader(new DataView(data.data), 0, true);
+        var packetId = reader.getUint8();
+        switch (packetId) {
+            case 0x10: // update nodes
+                var killer, killed, id, node, x, y, s, flags, cell,
+                    updColor, updName, updSkin, count, color, name, skin;
 
-    function WsMessage(data) {
-        var reader = new Reader(new DataView(data.data), 0, true),
-            i, count,
-            packet = reader.getUint8();
-        switch (packet) {
-            case 0x20:
-                // New cell of mine
-                myNodes.push(reader.getUint32());
+                // consume records
+                count = reader.getUint16();
+                for (var i = 0; i < count; i++) {
+                    killer = reader.getUint32();
+                    killed = reader.getUint32();
+                    if (!cells.byId.hasOwnProperty(killer) || !cells.byId.hasOwnProperty(killed))
+                        continue;
+                    cells.byId[killed].destroy(killer);
+                }
+
+                // update records
+                while (true) {
+                    id = reader.getUint32();
+                    if (id === 0) break;
+
+                    x = reader.getInt32();
+                    y = reader.getInt32();
+                    s = reader.getUint16();
+
+                    flags = reader.getUint8();
+                    updColor = !!(flags & 0x02);
+                    updName = !!(flags & 0x08);
+                    updSkin = !!(flags & 0x04);
+                    color = updColor ? bytesToColor(reader.getUint8(), reader.getUint8(), reader.getUint8()) : null;
+                    skin = updSkin ? reader.getStringUTF8() : null;
+                    name = updName ? reader.getStringUTF8() : null;
+
+                    if (cells.byId.hasOwnProperty(id)) {
+                        cell = cells.byId[id];
+                        cell.update(syncUpdStamp);
+                        cell.updated = syncUpdStamp;
+                        cell.ox = cell.x;
+                        cell.oy = cell.y;
+                        cell.os = cell.s;
+                        cell.nx = x;
+                        cell.ny = y;
+                        cell.ns = s;
+                        if (color) cell.setColor(color);
+                        if (skin) cell.setSkin(skin);
+                        if (name) cell.setName(name);
+                    } else {
+                        cell = new Cell(id, x, y, s, name, color, skin, flags);
+                        cells.byId[id] = cell;
+                        cells.list.push(cell);
+                    }
+                }
+                // dissapear records
+                count = reader.getUint16();
+                for (i = 0; i < count; i++) {
+                    killed = reader.getUint32();
+                    if (cells.byId.hasOwnProperty(killed) && !cells.byId[killed].destroyed)
+                        cells.byId[killed].destroy(null);
+                }
                 break;
-            case 0x63:
-                // Chat message
-                var flags = reader.getUint8(),
-                    name, message, nameColor;
+            case 0x11: // update pos
+                targetX = reader.getFloat32();
+                targetY = reader.getFloat32();
+                targetZ = reader.getFloat32();
+                break;
+            case 0x12: // clear all
+                for (var i in cells.byId)
+                    cells.byId[i].destroy(null);
+            case 0x14: // clear my cells
+                cells.mine = [];
+                break;
+            case 0x15: // draw line
+                log.warn("got packer 0x15 (draw line) which is unsupported");
+                break;
+            case 0x20: // new cell
+                cells.mine.push(reader.getUint32());
+                break;
+            case 0x30: // text list
+                leaderboard.items = [];
+                leaderboard.type = "text";
 
-                var r = reader.getUint8(),
-                    g = reader.getUint8(),
-                    b = reader.getUint8(),
-                    nameColor = (r << 16 | g << 8 | b).toString(16);
-                while (nameColor.length < 6) nameColor = '0' + nameColor;
-                nameColor = '#' + nameColor;
-                name = reader.getStringUTF8().trim();
+                var count = reader.getUint32();
+                for (i = 0; i < count; ++i)
+                    leaderboard.items.push(reader.getStringUTF8());
+                drawLeaderboard();
+                break;
+            case 0x31: // ffa list
+                leaderboard.items = [];
+                leaderboard.type = "ffa";
 
-                // Replace {skin} with empty string
+                var count = reader.getUint32();
+                for (i = 0; i < count; ++i)
+                    leaderboard.items.push({
+                        me: !!reader.getUint32(),
+                        name: reader.getStringUTF8() || "An unnamed cell"
+                    });
+                drawLeaderboard();
+                break;
+            case 0x32: // pie chart
+                leaderboard.items = [];
+                leaderboard.type = "pie";
+
+                var count = reader.getUint32();
+                for (i = 0; i < count; ++i)
+                    leaderboard.items.push(reader.getFloat32());
+                drawLeaderboard();
+                break;
+            case 0x40: // set border
+                border.left = reader.getFloat64();
+                border.top = reader.getFloat64();
+                border.right = reader.getFloat64();
+                border.bottom = reader.getFloat64();
+                if (data.data.byteLength === 33) break;
+                if (!mapCenterSet) {
+                    mapCenterSet = true;
+                    cameraX = targetX = (border.right - border.left) / 2;
+                    cameraY = targetY = (border.bottom - border.top) / 2;
+                    cameraZ = targetZ = 1;
+                }
+                reader.getUint32(); // game type
+                if (!/MultiOgar/.test(reader.getStringUTF8()) || stats.pingLoopId) break;
+                stats.pingLoopId = setInterval(function() {
+                    wsSend(UINT8_CACHE[254]);
+                    stats.pingLoopStamp = Date.now();
+                }, 2000);
+                break;
+            case 0x63: // chat message
+                var flags = reader.getUint8();
+                var color = bytesToColor(reader.getUint8(), reader.getUint8(), reader.getUint8());
+                
+                var name = reader.getStringUTF8().trim();
                 var reg = /\{([\w]+)\}/.exec(name);
-                if (reg) if (reg.length === 2) name = name.replace(reg[0], "").trim();
+                if (reg) name = name.replace(reg[0], "").trim();
+                var message = reader.getStringUTF8();
 
-                // Prefix for mods, admins & server
                 var server = !!(flags & 0x80),
                     admin = !!(flags & 0x40),
                     mod = !!(flags & 0x20);
@@ -146,434 +247,133 @@
                 if (server && name !== "SERVER") name = "[SERVER] " + name;
                 if (admin) name = "[ADMIN] " + name;
                 if (mod) name = "[MOD] " + name;
-
-                message = reader.getStringUTF8();
-                chatAlphaWait += Math.max(3000, 1000 + message.length * 150);
-                chatMessages.push({
+                var wait = Math.max(3000, 1000 + message.length * 150);
+                chat.waitUntil = syncUpdStamp - chat.waitUntil > 1000 ? syncUpdStamp + wait : chat.waitUntil + wait;
+                chat.messages.push({
                     server: server,
                     admin: admin,
                     mod: mod,
-                    nameColor: nameColor,
+                    color: color,
                     name: name,
                     message: message,
-                    time: Date.now()
+                    time: syncUpdStamp
                 });
                 drawChat();
                 break;
-            case 0x12:
-                // Clear all
-                for (var i in nodesID) nodesID[i].destroy(Date.now());
-            case 0x14:
-                // Clear nodes (case 0x12 slips here too)
-                myNodes = [];
-                break;
-            case 0x15:
-                // Draw line
-                // Unimplemented
-                break;
-            case 0xFE:
-                // Server stat
-                serverStats = JSON.parse(reader.getStringUTF8());
-                latency = Date.now() - lastMessageTime;
-                drawServerStat();
-                break;
-            case 0x40:
-                // Set border
-                border.left = reader.getFloat64();
-                border.top = reader.getFloat64();
-                border.right = reader.getFloat64();
-                border.bottom = reader.getFloat64();
-                if (data.data.byteLength !== 33) {
-                    // Game type and server name is given
-                    gameType = reader.getUint32();
-                    serverVersion = reader.getStringUTF8();
-                    if (/MultiOgar/.test(serverVersion) && !serverStatID) {
-                        serverStatID = setInterval(function() {
-                            // Server stat
-                            lastMessageTime = Date.now();
-                            WsSend(UINT8_CACHE[254]);
-                        }, 2000);
-                    }
-                }
-
-                if (0 === myNodes.length && !mapCenterSet) {
-                    mapCenterSet = true;
-                    _cX = (border.right + border.left) / 2;
-                    _cY = (border.bottom + border.top) / 2;
-                    centerX = _cX;
-                    centerY = _cY;
-                }
-                break;
-            // Leaderboard update packets
-            case 0x30:
-                // Text list, somewhat deprecated
-                leaderboard = [];
-                if (leaderboardType != 0x30) {
-                    leaderboardType = 0x30;
-                    log.info("Got somewhat deprecated leaderboard type 48 (0x30). Server-side is possibly Ogar")
-                }
-
-                count = reader.getUint32();
-                for (i = 0; i < count; ++i)
-                    leaderboard.push(reader.getStringUTF8());
-                drawLeaderboard();
-                break;
-            case 0x31:
-                // FFA list
-                leaderboard = [];
-                leaderboardType = 0x31;
-                count = reader.getUint32();
-                for (i = 0; i < count; ++i) {
-                    leaderboard.push({
-                        me: reader.getUint32(),
-                        name: reader.getStringUTF8() || "An unnamed cell"
-                    });
-                }
-                drawLeaderboard();
-                break;
-            case 0x32:
-                // Pie chart
-                leaderboard = [];
-                leaderboardType = 0x32;
-                count = reader.getUint32();
-                for (i = 0; i < count; ++i)
-                    leaderboard.push(reader.getFloat32());
-                drawLeaderboard();
-                break;
-            case 0x10:
-                // Update nodes
-                var killer, killed, id, node, x, y, size, flags,
-                    updColor, updName, updSkin, // Flags
-                    time = Date.now();
-
-                // Consume records
-                count = reader.getUint16();
-                for (var i = 0; i < count; i++) {
-                    killer = reader.getUint32();
-                    killed = reader.getUint32();
-                    if (!nodesID.hasOwnProperty(killer) || !nodesID.hasOwnProperty(killed)) continue;
-                    nodesID[killed].killer = nodesID[killer];
-                    nodesID[killed].destroy();
-                }
-
-                // Node update records
-                while (1) {
-                    id = reader.getUint32();
-                    if (0 === id) break;
-
-                    x = reader.getInt32();
-                    y = reader.getInt32();
-                    size = reader.getUint16();
-
-                    flags = reader.getUint8();
-                    updColor = !!(flags & 0x02);
-                    updName = !!(flags & 0x08);
-                    updSkin = !!(flags & 0x04);
-                    var color = null,
-                        name = null,
-                        skin = null,
-                        tmp = "";
-
-                    if (updColor) {
-                        color = "";
-                        for (var r = reader.getUint8(), g = reader.getUint8(), b = reader.getUint8(),
-                            color = (r << 16 | g << 8 | b).toString(16); 6 > color.length;) color = "0" + color;
-                        color = "#" + color;
-                    }
-
-                    if (updSkin) skin = reader.getStringUTF8();
-                    if (updName) name = reader.getStringUTF8();
-
-                    if (nodesID.hasOwnProperty(id)) {
-                        node = nodesID[id];
-                        node.nx = x;
-                        node.ny = y;
-                        node.nSize = size;
-                        updColor && (node.setColor(color));
-                        updName && name && (node.setName(name));
-                        updSkin && skin && (node.setSkin(skin));
-                        node.updateStamp = time;
-                    } else {
-                        node = new Cell(id, x, y, size, name || "", color || "#FFFFFF", skin || "", time, flags);
-                        nodesID[id] = node;
-                        nodes.push(node);
-                    }
-                }
-
-                // Dissapear records
-                count = reader.getUint16();
-                for (i = 0; i < count; i++) {
-                    killed = reader.getUint32();
-                    if (nodesID.hasOwnProperty(killed)) nodesID[killed].destroy(time);
-                }
-
-                // List through cells and if it wasn't updated mark it as pellet
-                count = nodes.length;
-                for (i = 0; i < count; i++) {
-                    node = nodes[i];
-
-                    if (node.isPellet || node.notPellet || node.isVirus || node.isAgitated || node.isEjected) continue;
-                    if (node.updateStamp !== time && node.birthStamp !== time) {
-                        // Node is a pellet - draw cache
-                        var _nCache = document.createElement('canvas');
-                        var pCtx = _nCache.getContext('2d'),
-                            lW = this.nSize > 20 ? Math.max(this.nSize * .01, 10) : 0, sz;
-                        _nCache.width = (sz = node.nSize + lW) * 2;
-                        _nCache.height = sz * 2;
-                        pCtx.lineWidth = lW;
-                        pCtx.lineCap = pCtx.lineJoin = "round";
-                        pCtx.fillStyle = node.color;
-                        pCtx.strokeStyle = node.strokeColor;
-
-                        pCtx.beginPath();
-                        pCtx.arc(sz, sz, node.nSize - lW, 0, 2 * Math.PI, false);
-                        pCtx.fill();
-                        pCtx.stroke();
-                        pCtx.closePath();
-                        node._meCache = _nCache;
-                        node._meW = _nCache.width / 2;
-                        node._meH = _nCache.height / 2;
-                        node.isPellet = true;
-                    } else if (node.updateStamp === time && node.birthStamp !== time)
-                        // Not a pellet
-                        node.notPellet = true;
-                }
-                break;
-            case 0x11:
-                // Update position (spectate packet)
-                _cX = reader.getFloat32();
-                _cY = reader.getFloat32();
-                _cZoom = reader.getFloat32();
+            case 0xFE: // server stat
+                stats.info = JSON.parse(reader.getStringUTF8());
+                stats.latency = syncUpdStamp - stats.pingLoopStamp;
+                drawStats();
                 break;
             default:
-                log.err("Got unexpected packet ID " + packet)
-                Disconnect();
+                // invalid packet
+                wsCleanup();
+                break;
         }
     }
-
-    function WsError(e) {
-        log.warn("Connection error");
-        log.debug(e);
-    }
-
-    function WsClose() {
-        log.debug("Disconnected");
-        Disconnect();
-        setTimeout(function() {
-            if (ws) if (ws.readyState === 1) return;
-            Connect(CONNECT_TO);
-        }, (disconnectDelay *= 1.5) * 1000);
-    }
-
-    function WsSend(data) {
-        if (!ws) return;
-        if (ws.readyState !== 1) return; // Still connecting
-        if (data.build) ws.send(data.build());
-        else ws.send(data);
-    }
-
-    function Play(name) {
-        log.debug("Playing");
-        var writer = new Writer(true);
-        writer.setUint8(0x00);
-        writer.setStringUTF8(name);
-        userName = name;
-        WsSend(writer);
-    }
-
-    function SendChat(a) {
-        if (a.length > 200) {
-            chatMessages.push({
-                server: false,
-                admin: false,
-                mod: false,
-                nameColor: "#FF0000",
-                name: "Cigar",
-                message: "Too large message!",
-                time: Date.now()
-            });
-            drawChat();
-            return;
-        }
-        if (log.VERBOSITY === 3) {
-            var s = a.split(' '),
-                v = s[0].toLowerCase();
-            if (v[0] === "/") {
-                if (v === "/dev") {
-                    chatMessages.push({
-                        server: false,
-                        admin: false,
-                        mod: false,
-                        nameColor: "#1671CC",
-                        name: "Cigar",
-                        message: "Dev commands",
-                        time: Date.now()
-                    }, {
-                        server: false,
-                        admin: false,
-                        mod: false,
-                        nameColor: "#1671CC",
-                        name: "Cigar",
-                        message: "/connect - connect to some other IP",
-                        time: Date.now()
-                    }, {
-                        server: false,
-                        admin: false,
-                        mod: false,
-                        nameColor: "#1671CC",
-                        name: "Cigar",
-                        message: "/setsetting - Set a graphics option",
-                        time: Date.now()
-                    });
-                    chatAlphaWait += 10000;
-                    drawChat();
-                    return;
-                } else if (v === "/connect") {
-                    Connect(s[1]);
-                    drawChat();
-                    return;
-                } else if (v === "/setsetting") {
-                    settings[s[2]] = s[3];
-                    drawChat();
-                    return;
-                }
-            }
-        }
-        var writer = new Writer();
-        writer.setUint8(0x63);
-        writer.setUint8(0);
-        writer.setStringUTF8(a);
-        WsSend(writer);
-    }
-
-    function SendMouseMove(x, y) {
+    function sendMouseMove(x, y) {
         var writer = new Writer(true);
         writer.setUint8(0x10);
         writer.setUint32(x);
         writer.setUint32(y);
         writer._b.push(0, 0, 0, 0);
-        WsSend(writer);
+        wsSend(writer);
+    }
+    function sendPlay(name) {
+        log.debug("play trigger");
+        var writer = new Writer(true);
+        writer.setUint8(0x00);
+        writer.setStringUTF8(name);
+        wsSend(writer);
+    }
+    function sendChat(text) {
+        var writer = new Writer();
+        writer.setUint8(0x63);
+        writer.setUint8(0);
+        writer.setStringUTF8(text);
+        wsSend(writer);
     }
 
-    // Game variables
-    var nodesID = { },
-        nodes = [],
-        deadNodes = [],
-        myNodes = [],
-        qTree = null,
-        leaderboard = [],
-        leaderboardType = -1, // -1 - Not set, 48 - Text list, 49 - FFA list, 50 - Pie chart
-        leaderboardCanvas = null,
-        userScore = 0,
-        centerX = 0,
-        centerY = 0,
-        _cX = 0, _cY = 0, _cZoom = 1, // Spectate packet X, Y & zoom
-        mapCenterSet = false,
-        rawMouseX = 0,
-        rawMouseY = 0,
-        border = BORDER_DEFAULT,
-        knownSkins = [],
-        loadedSkins = [],
-        drawZoom = 1,  // Scale when drawing
-        viewZoom = 1,  // Scale without scroll scaling
-        mouseZoom = 1, // Scroll scale
-        lastMessageTime = -1,
-        latency = -1,
-        drawing = false,
-        userName = "",
-        // Red Green Blue Yellow Cyan Magenta Orange
-        teamColors = ["#FF3333", "#33FF33", "#3333FF", "#FFFF33", "#33FFFF", "#FF33FF", "#FF8833"],
-        gameType = -1; // Given at SetBorder packet
-        serverVersion = "Unknown", // Given at SetBorder packet
-        chatText = "",
-        chatMessages = [],
-        chatAlphaWait = 0,
-        chatCanvas = null,
-        isTyping = false,
-        isWindowFocused = true,
-        mainCanvas = null,
-        mainCtx = null,
-        chatBox = null,
-        lastDrawTime = Date.now(),
-        escOverlay = false,
-        fps = 0,
-        serverStatID = null,
-        serverStats = null,
-        serverStatCanvas = null,
-        _viewMult = 1,
-        pressed = {
-            space: false,
-            w: false,
-            e: false,
-            r: false,
-            t: false,
-            p: false,
-            q: false,
-            esc: false
-        };
+    function gameReset() {
+        cleanupObject(cells);
+        cleanupObject(border);
+        cleanupObject(leaderboard);
+        cleanupObject(chat);
+        cleanupObject(stats);
+        chat.messages = [];
+        leaderboard.items = [];
+        cells.mine = [];
+        cells.byId = { };
+        cells.list = [];
+        cameraX = cameraY = targetX = targetY = 0;
+        cameraZ = targetZ = 1;
+        mapCenterSet = false;
+    }
 
-    // Render quality settings
-    var qualitySettings = {
-        'retina': {
-            getTextLineWidth: function(a) {
-                return a * .1;
-            },
-            cellOutline: true,
-            smoothRender: .3,
-            overrideGrid: false,
-            overrideSkins: false,
-            drawStat: true,
-            drawMassSpectate: true
-        },
-        'high': {
-            getTextLineWidth: function(a) {
-                return a * .1;
-            },
-            cellOutline: true,
-            smoothRender: .4,
-            overrideGrid: false,
-            overrideSkins: false,
-            drawStat: true,
-            drawMassSpectate: true
-        },
-        'medium': {
-            getTextLineWidth: function(a) {
-                return a * .1;
-            },
-            cellOutline: false,
-            smoothRender: .7,
-            overrideGrid: false,
-            overrideSkins: false,
-            drawStat: true,
-            drawMassSpectate: true
-        },
-        'low': {
-            getTextLineWidth: function(a) {
-                return 3.1;
-            },
-            cellOutline: false,
-            smoothRender: 1.3,
-            overrideGrid: true,
-            overrideSkins: false,
-            drawStat: false,
-            drawMassSpectate: false
-        },
-        'mobile': {
-            getTextLineWidth: function(a) {
-                return 0;
-            },
-            cellOutline: false,
-            smoothRender: Infinity,
-            overrideGrid: true,
-            overrideSkins: true,
-            drawStat: false,
-            drawMassSpectate: false
-        },
-    };
+    var cells = Object.create({
+        mine: [],
+        byId: { },
+        list: [],
+    });
+    var border = Object.create({
+        left: -2000,
+        right: 2000,
+        top: -2000,
+        bottom: 2000
+    });
+    var leaderboard = Object.create({
+        type: NaN,
+        items: null,
+        canvas: document.createElement("canvas"),
+        teams: ["#F33", "#3F3", "#33F"]
+    });
+    var chat = Object.create({
+        messages: [],
+        waitUntil: 0,
+        canvas: document.createElement("canvas"),
+        visible: false,
+    });
+    var stats = Object.create({
+        framesPerSecond: 0,
+        latency: NaN,
+        supports: null,
+        info: null,
+        pingLoopId: NaN,
+        pingLoopStamp: null,
+        canvas: document.createElement("canvas"),
+        visible: false,
+        score: NaN,
+        maxScore: 0
+    });
+    var ws = null;
+    var wsUrl = null;
+    var disconnectDelay = 1000;
 
-    // Client variables
+    var syncUpdStamp = Date.now();
+    var syncAppStamp = Date.now();
+
+    var mainCanvas = null;
+    var mainCtx = null;
+    var knownSkins = { };
+    var loadedSkins = { };
+    var escOverlayShown = false;
+    var isTyping = false;
+    var chatBox = null;
+    var mapCenterSet = false;
+    var cameraX = 0;
+    var cameraY = 0;
+    var cameraZ = 1;
+    var cameraZInvd = 1;
+    var targetX = 0;
+    var targetY = 0;
+    var targetZ = 1;
+    var viewMult = 1;
+    var mouseX = NaN;
+    var mouseY = NaN;
+    var mouseZ = 1;
+
     var settings = {
-        mobile: 'createTouch' in document,
+        mobile: "createTouch" in document,
         showMass: false,
         showNames: true,
         showLeaderboard: true,
@@ -583,19 +383,20 @@
         showColor: true,
         showSkins: true,
         darkTheme: false,
-        fastRenderMax: .4,
-        quality: 'medium',
-        qualityRef: qualitySettings['medium'],
-        allowGETipSet: false // Whether index.html?ip=abc is accepted (not implemented)
+        allowGETipSet: false
+    };
+    var pressed = {
+        space: false,
+        w: false,
+        e: false,
+        r: false,
+        t: false,
+        p: false,
+        q: false,
+        esc: false
     };
 
-    // Touches
-    var touchStartX = 0,
-        touchStartY = 0,
-        touchMove = false;
-
-    // Load local storage
-    if (null != wHandle.localStorage) {
+    if (null !== wHandle.localStorage) {
         wjQuery(window).load(function() {
             wjQuery(".save").each(function() {
                 var id = $(this).data("box-id");
@@ -614,119 +415,637 @@
             });
         });
     }
-
-    // Load known skin list
     wjQuery.ajax({
         type: "POST",
         dataType: "json",
         url: "checkdir.php",
-        data: {
-            "action": "getSkins"
-        },
+        data: { "action": "getSkins" },
         success: function(data) {
+            var stamp = Date.now();
             response = JSON.parse(data.names);
-            for (var i = 0; i < response.length; i++) {
-                if (-1 === knownSkins.indexOf(response[i])) {
-                    knownSkins.push(response[i]);
-                }
-            }
+            for (var i = 0; i < response.length; i++)
+                knownSkins[response[i]] = stamp;
+            for (var i in knownSkins)
+                if (knownSkins[i] !== stamp) delete knownSkins[i];
         }
     });
 
     function hideESCOverlay() {
-        escOverlay = false;
+        escOverlayShown = false;
         wjQuery("#overlays").hide();
     }
-
-    function showESCOverlay(arg) {
-        escOverlay = true;
-        userNickName = null;
-        wjQuery("#overlays").fadeIn(350);
+    function showESCOverlay() {
+        escOverlayShown = true;
+        wjQuery("#overlays").fadeIn(300);
     }
 
-    function loadInit() {
-        mainCanvas = document.getElementById('canvas');
-        mainCtx = mainCanvas.getContext('2d');
-        chatBox = document.getElementById("chat_textbox");
-        mainCanvas.focus();
+    function toCamera(ctx) {
+        ctx.translate(mainCanvas.width / 2, mainCanvas.height / 2);
+        scaleForth(ctx);
+        ctx.translate(-cameraX, -cameraY);
+    }
+    function scaleForth(ctx) { ctx.scale(cameraZ, cameraZ); }
+    function scaleBack(ctx) { ctx.scale(cameraZInvd, cameraZInvd); }
+    function fromCamera(ctx) {
+        ctx.translate(cameraX, cameraY);
+        scaleBack(ctx);
+        ctx.translate(-mainCanvas.width / 2, -mainCanvas.height / 2);
+    }
+    
+    function drawChat() {
+        if (chat.messages.length === 0 && settings.showChat)
+            return chat.visible = false;
+        chat.visible = true;
+        var canvas = chat.canvas;
+        var ctx = canvas.getContext("2d");
+        var latestMessages = chat.messages.slice(-15);
+        var lines = [];
+        for (var i = 0, len = latestMessages.length; i < len; i++)
+            lines.push([
+                {
+                    text: latestMessages[i].name,
+                    color: latestMessages[i].color
+                }, {
+                    text: " " + latestMessages[i].message,
+                    color: settings.darkTheme ? "#FFF" : "#000"
+                }
+            ]);
+        var width = 0;
+        var height = 20 * len + 2;
+        for (var i = 0; i < len; i++) {
+            var thisLineWidth = 0;
+            var complexes = lines[i];
+            for (var j = 0; j < complexes.length; j++) {
+                ctx.font = "18px Ubuntu";
+                complexes[j].width = ctx.measureText(complexes[j].text).width;
+                thisLineWidth += complexes[j].width;
+            }
+            width = Math.max(thisLineWidth, width);
+        }
+        canvas.width = width;
+        canvas.height = height;
+        for (var i = 0; i < len; i++) {
+            width = 0;
+            var complexes = lines[i];
+            for (var j = 0; j < complexes.length; j++) {
+                ctx.font = "18px Ubuntu";
+                ctx.fillStyle = complexes[j].color;
+                ctx.fillText(complexes[j].text, width, 20 * (1 + i));
+                width += complexes[j].width;
+            }
+        }
+    }
 
-        // Wheel handling
-        function handleWheel(event) {
-            mouseZoom *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
-            1 > mouseZoom && (mouseZoom = 1);
-            mouseZoom > 4 / viewZoom && (mouseZoom = 4 / viewZoom);
+    function drawStats() {
+        if (!stats.info) return stats.visible = false;
+        stats.visible = true;
+
+        var canvas = stats.canvas;
+        var ctx = canvas.getContext("2d");
+        ctx.font = "14px Ubuntu";
+        var rows = [
+            `${stats.info.name} (${stats.info.mode})`,
+            `${stats.info.playersTotal} / ${stats.info.playersLimit} players`,
+            `${stats.info.playersAlive} playing`,
+            `${stats.info.playersSpect} spectating`,
+            `${(stats.info.update * 2.5).toFixed(1)}% load @ ${prettyPrintTime(stats.info.uptime)}`
+        ];
+        var width = 0;
+        for (var i = 0; i < rows.length; i++)
+            width = Math.max(width, 2 + ctx.measureText(rows[i]).width + 2);
+        canvas.width = width;
+        canvas.height = rows.length * (14 + 2);
+        ctx.font = "14px Ubuntu";
+        ctx.fillStyle = settings.darkTheme ? "#AAA" : "#555";
+        ctx.textBaseline = "top";
+        for (var i = 0; i < rows.length; i++)
+            ctx.fillText(rows[i], 2, -2 + i * (14 + 2));
+    }
+    function prettyPrintTime(seconds) {
+        seconds = ~~seconds;
+        var minutes = ~~(seconds / 60);
+        if (minutes < 1) return "<1 min";
+        var hours = ~~(minutes / 60);
+        if (hours < 1) return minutes + "min";
+        var days = ~~(hours / 24);
+        if (days < 1) return hours + "h";
+        return days + "d";
+    }
+
+    function drawLeaderboard() {
+        if (leaderboard.type === NaN) return leaderboard.visible = false;
+        if (leaderboard.items.length === 0 || !settings.showNames)
+            return leaderboard.visible = false;
+        leaderboard.visible = true;
+        var canvas = leaderboard.canvas;
+        var ctx = canvas.getContext("2d");
+        var len = leaderboard.items.length;
+
+        canvas.width = 200;
+        canvas.height = leaderboard.type !== "pie" ? 60 + 24 * len : 240;
+
+        ctx.globalAlpha = .4;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, 200, canvas.height);
+
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#FFF";
+        ctx.font = "30px Ubuntu";
+        ctx.fillText("Leaderboard", 100 - ctx.measureText("Leaderboard").width / 2, 40);
+
+        if (leaderboard.type === "pie") {
+            var last = 0;
+            for (var i = 0; i < len; i++) {
+                ctx.fillStyle = leaderboard.teams[i];
+                ctx.beginPath();
+                ctx.moveTo(100, 140);
+                ctx.arc(100, 140, 80, last, (last += leaderboard.items[i] * PI_2), false);
+                ctx.closePath();
+                ctx.fill();
+            }
+        } else {
+            var text, isMe = false, w, start;
+            ctx.font = "20px Ubuntu";
+            for (var i = 0; i < len; i++) {
+                if (leaderboard.type === "text")
+                    text = leaderboard.items[i];
+                else
+                    text = leaderboard.items[i].name,
+                    isMe = leaderboard.items[i].me;
+
+                // Replace {skin} with empty string
+                var reg = /\{([\w]+)\}/.exec(text);
+                if (reg) text = text.replace(reg[0], "").trim();
+
+                ctx.fillStyle = isMe ? "#FAA" : "#FFF";
+                if (leaderboard.type === "ffa")
+                    text = (i + 1) + ". " + (text || "An unnamed cell");
+                var start = ((w = ctx.measureText(text).width) > 200) ? 2 : 100 - w * 0.5;
+                ctx.fillText(text, start, 70 + 24 * i);
+            }
+        }
+    }
+    function drawGrid() {
+        mainCtx.save();
+        mainCtx.lineWidth = 1;
+        mainCtx.strokeStyle = settings.darkTheme ? "#AAA" : "#000";
+        mainCtx.globalAlpha = 0.2;
+        var step = 50, i;
+            cW = mainCanvas.width / cameraZ, cH = mainCanvas.height / cameraZ,
+            startLeft = (-cameraX + cW / 2) % step,
+            startTop = (-cameraY + cH / 2) % step;
+
+        scaleForth(mainCtx);
+        mainCtx.beginPath();
+        for (i = startLeft; i < cW; i += step) {
+            mainCtx.moveTo(i, 0);
+            mainCtx.lineTo(i, cH);
+        }
+        for (i = startTop; i < cH; i += step) {
+            mainCtx.moveTo(0, i);
+            mainCtx.lineTo(cW, i);
+        }
+        mainCtx.closePath();
+        mainCtx.stroke();
+        mainCtx.restore();
+    }
+
+    function drawGame() {
+        stats.framesPerSecond += (1000 / Math.max(Date.now() - syncAppStamp, 1) - stats.framesPerSecond) / 10;
+        syncAppStamp = Date.now();
+
+        var drawList = cells.list.slice(0).sort(nodeSort);
+        for (var i = 0, l = drawList.length; i < l; i++)
+            drawList[i].update(syncAppStamp);
+        cameraUpdate();
+
+        mainCtx.save();
+
+        mainCtx.fillStyle = settings.darkTheme ? "#111" : "#F2FBFF";
+        mainCtx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+        if (settings.showGrid) drawGrid();
+
+        toCamera(mainCtx);
+
+        for (var i = 0, l = drawList.length; i < l; i++)
+            drawList[i].draw(mainCtx);
+
+        fromCamera(mainCtx);
+        mainCtx.scale(viewMult, viewMult);
+
+        var height = 2;
+        mainCtx.fillStyle = settings.darkTheme ? "#FFF" : "#000";
+        mainCtx.textBaseline = "top";
+        if (!isNaN(stats.score)) {
+            mainCtx.font = "30px Ubuntu";
+            mainCtx.fillText(`Score: ${stats.score}`, 2, height);
+            height += 30;
+        }
+        mainCtx.font = "20px Ubuntu";
+        var gameStatsText = `${~~stats.framesPerSecond} FPS`;
+        if (!isNaN(stats.latency)) gameStatsText += ` ${stats.latency}ms ping`;
+        mainCtx.fillText(gameStatsText, 2, height);
+        height += 24;
+
+        if (stats.visible)
+            mainCtx.drawImage(stats.canvas, 2, height);
+        if (leaderboard.visible)
+            mainCtx.drawImage(
+                leaderboard.canvas,
+                mainCanvas.width / viewMult - 10 - leaderboard.canvas.width,
+                10);
+        if (chat.visible || isTyping || true) {
+            mainCtx.globalAlpha = 1//isTyping ? 1 : Math.max(1000 - syncAppStamp + chat.waitUntil, 0) / 1000;
+            mainCtx.drawImage(
+                chat.canvas,
+                10 / viewMult,
+                (mainCanvas.height - 55) / viewMult - chat.canvas.height
+            );
+            mainCtx.globalAlpha = 1;
         }
 
-        // Mouse wheel
+        mainCtx.restore();
+
+        cacheCleanup();
+        wHandle.requestAnimationFrame(drawGame);
+    }
+    
+    function nodeSort(a, b) {
+        return a.s === b.s ? a.id - b.id : a.s - b.s;
+    }
+
+    function cameraUpdate() {
+        var myCells = [];
+        for (var i = 0; i < cells.mine.length; i++)
+            if (cells.byId.hasOwnProperty(cells.mine[i]))
+                myCells.push(cells.byId[cells.mine[i]]);
+        if (myCells.length > 0) {
+            var x = 0,
+                y = 0,
+                s = 0,
+                score = 0;
+            for (var i = 0, l = myCells.length; i < l; i++) {
+                var cell = myCells[i];
+                score += ~~(cell.ns * cell.ns / 100);
+                x += cell.x;
+                y += cell.y;
+                s += cell.s;
+            }
+            targetX = x / l;
+            targetY = y / l;
+            targetZ = Math.pow(Math.min(64 / s, 1), .4);
+            cameraX += (targetX - cameraX) / 2;
+            cameraY += (targetY - cameraY) / 2;
+            stats.score = score;
+            stats.maxScore = Math.max(stats.maxScore, score);
+        } else {
+            stats.score = NaN;
+            stats.maxScore = 0;
+            cameraX += (targetX - cameraX) / 20;
+            cameraY += (targetY - cameraY) / 20;
+        }
+        cameraZ += (targetZ * viewMult * mouseZ - cameraZ) / 9;
+        cameraZInvd = 1 / cameraZ;
+    }
+
+    function Cell(id, x, y, s, name, color, skin, flags) {
+        this.id = id;
+        this.x = this.nx = this.ox = x;
+        this.y = this.ny = this.oy = y;
+        this.s = this.ns = this.os = s;
+        this.setColor(color);
+        this.setName(name);
+        this.setSkin(skin);
+        this.jagged = flags & 0x01 || flags & 0x10;
+        this.ejected = !!(flags & 0x20);
+        this.born = syncUpdStamp;
+    }
+    Cell.prototype = {
+        destroyed: false,
+        id: 0, diedBy: 0,
+        ox: 0, x: 0, nx: 0,
+        oy: 0, y: 0, ny: 0,
+        os: 0, s: 0, ns: 0,
+        nameSize: 0, drawNameSize: 0,
+        color: "#FFF", sColor: "#E5E5E5",
+        skin: null, jagged: false,
+        born: null, updated: null, dead: null, // timestamps
+        destroy: function(killerId) {
+            delete cells.byId[this.id];
+            if (cells.mine.remove(this.id) && cells.mine.length === 0)
+                showESCOverlay();
+            this.destroyed = true;
+            this.dead = syncUpdStamp;
+            if (killerId && !this.diedBy)
+                this.diedBy = killerId;
+        },
+        update: function(relativeTime) {
+            var dt = (relativeTime - this.updated) / 120;
+            dt = Math.max(Math.min(dt, 1), 0);
+            if (this.destroyed && Date.now() > this.dead + 200)
+                cells.list.remove(this);
+            else if (this.diedBy && cells.byId.hasOwnProperty(this.diedBy)) {
+                this.nx = cells.byId[this.diedBy].x;
+                this.ny = cells.byId[this.diedBy].y;
+            }
+            this.x = this.ox + (this.nx - this.ox) * dt;
+            this.y = this.oy + (this.ny - this.oy) * dt;
+            this.s = this.os + (this.ns - this.os) * dt;
+            this.nameSize = ~~(~~(Math.max(~~(0.3 * this.ns), 24)) / 3) * 3;
+            this.drawNameSize = ~~(~~(Math.max(~~(0.3 * this.s), 24)) / 3) * 3;
+        },
+        setName: function(value) {
+            var nameSkin = /\{([\w\W]+)\}/.exec(value);
+            if (this.skin === null && nameSkin !== null) {
+                this.name = value.replace(nameSkin[0], "").trim();
+                this.setSkin(nameSkin[1]);
+            } else this.name = value;
+        },
+        setSkin: function(value) {
+            this.skin = (value && value[0] === "%" ? value.slice(1) : value) || this.skin;
+            if (this.skin === null || !knownSkins.hasOwnProperty(this.skin) || loadedSkins[this.skin])
+                return;
+            loadedSkins[this.skin] = new Image();
+            loadedSkins[this.skin].src = `${SKIN_URL}${this.skin}.png`;
+        },
+        setColor: function(value) {
+            if (!value) { log.warn("got no color"); return; }
+            this.color = value;
+            this.sColor = darkenColor(value);
+        },
+        draw: function(ctx) {
+            ctx.save();
+            this.drawShape(ctx);
+            this.drawText(ctx);
+            ctx.restore();
+        },
+        drawShape: function(ctx) {
+            ctx.fillStyle = settings.showColor ? this.color : Cell.prototype.color;
+            ctx.strokeStyle = settings.showColor ? this.sColor : Cell.prototype.sColor;
+            ctx.lineWidth = Math.max(~~(this.s / 50), 10);
+            if (!this.ejected && 20 < this.s)
+                this.s -= ctx.lineWidth / 2 - 2;
+
+            ctx.beginPath();
+            if (this.jagged) {
+                var pointCount = 120;
+                var incremental = PI_2 / pointCount;
+                ctx.moveTo(this.x, this.y + this.s + 3);
+                for (var i = 1; i < pointCount; i++) {
+                    var angle = i * incremental;
+                    var dist = this.s - 3 + (i % 2 === 0) * 6;
+                    ctx.lineTo(
+                        this.x + dist * Math.sin(angle),
+                        this.y + dist * Math.cos(angle)
+                    )
+                }
+                ctx.lineTo(this.x, this.y + this.s + 3);
+            } else ctx.arc(this.x, this.y, this.s, 0, PI_2, false);
+            ctx.closePath();
+
+            if (this.destroyed)
+                ctx.globalAlpha = Math.max(200 - Date.now() + this.dead, 0) / 100;
+            else ctx.globalAlpha = Math.min(Date.now() - this.born, 200) / 100;
+            
+            if (!this.ejected && 20 < this.s)
+                ctx.stroke();
+            ctx.fill();
+            if (settings.showSkins && this.skin) {
+                var skin = loadedSkins[this.skin];
+                if (skin && skin.complete && skin.width && skin.height) {
+                    ctx.save();
+                    ctx.clip();
+                    scaleBack(ctx);
+                    var sScaled = this.s * cameraZ;
+                    ctx.drawImage(skin,
+                        this.x * cameraZ - sScaled,
+                        this.y * cameraZ - sScaled,
+                        sScaled *= 2, sScaled);
+                    scaleForth(ctx);
+                    ctx.restore();
+                }
+            }
+            if (!this.ejected && 20 < this.s)
+                this.s += ctx.lineWidth / 2 - 2;
+        },
+        drawText: function(ctx) {
+            if (this.s < 20 || this.jagged) return;
+            if (settings.showMass && (cells.mine.indexOf(this.id) !== -1 || cells.mine.length === 0)) {
+                var mass = (~~(this.s * this.s / 100)).toString();
+                if (this.name && settings.showNames) {
+                    drawText(ctx, false, this.x, this.y, this.nameSize, this.drawNameSize, this.name);
+                    var y = this.y + Math.max(this.s / 4.5, this.nameSize / 1.5);
+                    drawText(ctx, true, this.x, y, this.nameSize / 2, this.drawNameSize / 2, mass);
+                } else drawText(ctx, true, this.x, this.y, this.nameSize / 2, this.drawNameSize / 2, mass);
+            } else if (this.name && settings.showNames)
+                drawText(ctx, false, this.x, this.y, this.nameSize, this.drawNameSize, this.name);
+        }
+    };
+
+    function cacheCleanup() {
+        for (var i in cachedNames) {
+            for (var j in cachedNames[i])
+                if (syncAppStamp - cachedNames[i][j].accessTime >= 5000)
+                    delete cachedNames[i][j];
+            if (cachedNames[i] === { }) delete cachedNames[i];
+        }
+        for (var i in cachedMass)
+            if (syncAppStamp - cachedMass[i].accessTime >= 5000)
+                delete cachedMass[i];
+    }
+
+    // 2-var draw-stay cache
+    var cachedNames = { };
+    var cachedMass  = { };
+
+    function drawTextOnto(canvas, ctx, text, size) {
+        ctx.font = `${size}px Ubuntu`;
+        ctx.lineWidth = settings.showTextOutline ? Math.max(~~(size / 10), 2) : 2;
+        canvas.width = ctx.measureText(text).width + 2 * ctx.lineWidth;
+        canvas.height = 4 * size;
+        ctx.font = `${size}px Ubuntu`;
+        ctx.lineWidth = settings.showTextOutline ? Math.max(~~(size / 10), 2) : 2;
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#FFF"
+        ctx.strokeStyle = "#000";
+        ctx.translate(canvas.width / 2, 2 * size);
+        (ctx.lineWidth !== 1) && ctx.strokeText(text, 0, 0);
+        ctx.fillText(text, 0, 0);
+    }
+    function drawRaw(ctx, x, y, text, size) {
+        ctx.font = `${size}px Ubuntu`;
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.lineWidth = settings.showTextOutline ? Math.max(~~(size / 10), 2) : 2;
+        ctx.fillStyle = "#FFF"
+        ctx.strokeStyle = "#000";
+        (ctx.lineWidth !== 1) && ctx.strokeText(text, x, y);
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
+    function newNameCache(value, size) {
+        var canvas = document.createElement("canvas");
+        var ctx = canvas.getContext("2d");
+        drawTextOnto(canvas, ctx, value, size);
+
+        cachedNames[value] = cachedNames[value] || { };
+        cachedNames[value][size] = {
+            width: canvas.width,
+            height: canvas.height,
+            canvas: canvas,
+            value: value,
+            size: size,
+            accessTime: syncAppStamp
+        };
+        return cachedNames[value][size];
+    }
+    function newMassCache(size) {
+        var canvases = {
+            "0": { }, "1": { }, "2": { }, "3": { }, "4": { },
+            "5": { }, "6": { }, "7": { }, "8": { }, "9": { }
+        };
+        for (var value in canvases) {
+            var canvas = canvases[value].canvas = document.createElement("canvas");
+            var ctx = canvas.getContext("2d");
+            drawTextOnto(canvas, ctx, value, size);
+            canvases[value].canvas = canvas;
+            canvases[value].width = canvas.width;
+            canvases[value].height = canvas.height;
+        }
+        cachedMass[size] = {
+            canvases: canvases,
+            size: size,
+            lineWidth: settings.showTextOutline ? Math.max(~~(size / 10), 2) : 2,
+            accessTime: syncAppStamp
+        };
+        return cachedMass[size];
+    }
+    function toleranceTest(a, b, tolerance) {
+        return (a - tolerance) <= b && b <= (a + tolerance);
+    }
+    function getNameCache(value, size) {
+        if (!cachedNames[value]) return newNameCache(value, size);
+        var sizes = Object.keys(cachedNames[value]);
+        for (var i = 0, l = sizes.length; i < l; i++)
+            if (toleranceTest(size, sizes[i], size / 4))
+                return cachedNames[value][sizes[i]];
+        return newNameCache(value, size);
+    }
+    function getMassCache(size) {
+        var sizes = Object.keys(cachedMass);
+        for (var i = 0, l = sizes.length; i < l; i++)
+            if (toleranceTest(size, sizes[i], size / 4))
+                return cachedMass[sizes[i]];
+        return newMassCache(size);
+    }
+
+    function drawText(ctx, isMass, x, y, size, drawSize, value) {
+        ctx.save();
+        if (size > 500) return drawRaw(ctx, x, y, value, drawSize);
+        ctx.imageSmoothingQuality = "high";
+        if (isMass) {
+            var cache = getMassCache(size);
+            cache.accessTime = syncAppStamp;
+            var canvases = cache.canvases;
+            var correctionScale = drawSize / cache.size;
+
+            // calculate width
+            var width = 0;
+            for (var i = 0; i < value.length; i++)
+                width += canvases[value[i]].width - 2 * cache.lineWidth;
+            
+            ctx.scale(correctionScale, correctionScale);
+            x /= correctionScale;
+            y /= correctionScale;
+            x -= width / 2;
+            for (var i = 0; i < value.length; i++) {
+                var item = canvases[value[i]];
+                ctx.drawImage(item.canvas, x, y - item.height / 2);
+                x += item.width - 2 * cache.lineWidth;
+            }
+        } else {
+            var cache = getNameCache(value, size);
+            cache.accessTime = syncAppStamp;
+            var canvas = cache.canvas;
+            var correctionScale = drawSize / cache.size;
+            ctx.scale(correctionScale, correctionScale);
+            x /= correctionScale;
+            y /= correctionScale;
+            ctx.drawImage(canvas, x - canvas.width / 2, y - canvas.height / 2);
+        }
+        ctx.restore();
+    }
+
+    function init() {
+        mainCanvas = document.getElementById("canvas");
+        mainCtx = mainCanvas.getContext("2d");
+        chatBox = document.getElementById("chat_textbox");
+        mainCanvas.focus();
+        function handleWheel(event) {
+            mouseZ *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
+            //1 > mouseZ && (mouseZ = 1);
+            //mouseZ > 4 / mouseZ && (mouseZ = 4 / mouseZ);
+        }
         if (/firefox/i.test(navigator.userAgent))
             document.addEventListener("DOMMouseScroll", handleWheel, false);
         else
             document.body.onmousewheel = handleWheel;
-
-        window.onfocus = function() {
-            isWindowFocused = true;
-        };
-
-        window.onblur = function() {
-            isWindowFocused = false;
-        };
-
         wHandle.onkeydown = function(event) {
             switch (event.keyCode) {
                 case 13: // enter
-                    if (escOverlay) break;
+                    if (escOverlayShown) break;
                     if (!settings.showChat) break;
                     if (isTyping) {
                         chatBox.blur();
                         var chattxt = chatBox.value;
-                        if (chattxt.length > 0) SendChat(chattxt);
+                        if (chattxt.length > 0) sendChat(chattxt);
                         chatBox.value = "";
                     } else chatBox.focus();
                     break;
                 case 32: // space
-                    if (isTyping || escOverlay || pressed.space) break;
-                    WsSend(UINT8_CACHE[17]);
+                    if (isTyping || escOverlayShown || pressed.space) break;
+                    wsSend(UINT8_CACHE[17]);
                     pressed.space = true;
                     break;
                 case 87: // W
-                    if (isTyping || escOverlay || pressed.w) break;
-                    WsSend(UINT8_CACHE[21]);
+                    if (isTyping || escOverlayShown) break;
+                    wsSend(UINT8_CACHE[21]);
                     pressed.w = true;
                     break;
                 case 81: // Q
-                    if (isTyping || escOverlay || pressed.q) break;
-                    WsSend(UINT8_CACHE[18]);
+                    if (isTyping || escOverlayShown || pressed.q) break;
+                    wsSend(UINT8_CACHE[18]);
                     pressed.q = true;
                     break;
                 case 69: // E
-                    if (isTyping || escOverlay || pressed.e) break;
-                    WsSend(UINT8_CACHE[22]);
+                    if (isTyping || escOverlayShown || pressed.e) break;
+                    wsSend(UINT8_CACHE[22]);
                     pressed.e = true;
                     break;
                 case 82: // R
-                    if (isTyping || escOverlay || pressed.r) break;
-                    WsSend(UINT8_CACHE[23]);
+                    if (isTyping || escOverlayShown || pressed.r) break;
+                    wsSend(UINT8_CACHE[23]);
                     pressed.r = true;
                     break;
                 case 84: // T
-                    if (isTyping || escOverlay || pressed.t) break;
-                    WsSend(UINT8_CACHE[24]);
+                    if (isTyping || escOverlayShown || pressed.t) break;
+                    wsSend(UINT8_CACHE[24]);
                     pressed.t = true;
                     break;
                 case 80: // P
-                    if (isTyping || escOverlay || pressed.p) break;
-                    WsSend(UINT8_CACHE[25]);
+                    if (isTyping || escOverlayShown || pressed.p) break;
+                    wsSend(UINT8_CACHE[25]);
                     pressed.p = true;
                     break;
                 case 27: // esc
                     if (pressed.esc) break;
                     pressed.esc = true;
-                    if (escOverlay) hideESCOverlay();
+                    if (escOverlayShown) hideESCOverlay();
                     else showESCOverlay();
                     break;
             }
         };
-
         wHandle.onkeyup = function(event) {
             switch (event.keyCode) {
                 case 32: // space
@@ -736,7 +1055,7 @@
                     pressed.w = false;
                     break;
                 case 81: // Q
-                    if (pressed.q) WsSend(UINT8_CACHE[19]);
+                    if (pressed.q) wsSend(UINT8_CACHE[19]);
                     pressed.q = false;
                     break;
                 case 69: // E
@@ -751,942 +1070,48 @@
                 case 80: // P
                     pressed.p = false;
                     break;
-                case 27:
+                case 27: // esc
                     pressed.esc = false;
                     break;
             }
         };
-
         chatBox.onblur = function() {
             isTyping = false;
             drawChat();
         };
-
         chatBox.onfocus = function() {
             isTyping = true;
             drawChat();
         };
-
         mainCanvas.onmousemove = function(event) {
-            rawMouseX = event.clientX;
-            rawMouseY = event.clientY;
+            mouseX = event.clientX;
+            mouseY = event.clientY;
         };
-
-        setTimeout(function() {
-            // Auto quality setting
-            var a = mainCanvas.width = wHandle.innerWidth,
-                b = mainCanvas.height = wHandle.innerHeight;
-            var qualityOutput = Math.min(((a * b) / 178000), 20); // Output 1-20
-            switch (Math.round(qualityOutput)) {
-                case 20: case 19: case 18: case 17:
-                    $('#quality').val('retina');
-                    settings.qualityRef = qualitySettings[settings.quality = 'retina'];
-                    break;
-                case 16: case 15: case 14: case 13: case 12: case 11:
-                    $('#quality').val('high');
-                    settings.qualityRef = qualitySettings[settings.quality = 'high'];
-                    break;
-                case 10: case 9: case 8: case 7: case 6: case 5:
-                    $('#quality').val('medium');
-                    settings.qualityRef = qualitySettings[settings.quality = 'medium'];
-                    break;
-                case 4: case 3:
-                    $('#quality').val('low');
-                    settings.qualityRef = qualitySettings[settings.quality = 'low'];
-                    break;
-                default:
-                    $('#quality').val('mobile');
-                    settings.qualityRef = qualitySettings[settings.quality = 'mobile'];
-                    break;
-            }
-            log.debug("Auto-quality " + settings.quality + " for window size " + mainCanvas.width + "x" +
-                mainCanvas.height + ", quality value " + Math.round(qualityOutput) + " (real " + qualityOutput + "), view multiplier " + viewMultiplier());
-        }, 100);
-
         setInterval(function() {
             // Mouse update
-            SendMouseMove((rawMouseX - mainCanvas.width / 2) / drawZoom + centerX,
-                (rawMouseY - mainCanvas.height / 2) / drawZoom + centerY);
+            sendMouseMove(
+                (mouseX - mainCanvas.width / 2) / cameraZ + cameraX,
+                (mouseY - mainCanvas.height / 2) / cameraZ + cameraY
+            );
         }, 40);
-
         wHandle.onresize = function() {
             var cW = mainCanvas.width = wHandle.innerWidth,
                 cH = mainCanvas.height = wHandle.innerHeight;
-            _viewMult = Math.min(cH / 1080, cW / 1920);
+            viewMult = Math.sqrt(Math.min(cH / 1080, cW / 1920));
         };
-
         wHandle.onresize();
-
-        log.info("Loaded, took " + (Date.now() - LOAD_START) + " ms");
-
-        if (window.requestAnimationFrame)
-            window.requestAnimationFrame(drawLoop);
-        else
-            setInterval(drawGame, 1E3 / FPS_MAXIMUM);
+        log.info(`init done in ${Date.now() - LOAD_START}ms`);
+        gameReset();
         showESCOverlay();
+        window.requestAnimationFrame(drawGame);
     }
-
-    function getChatAlpha() {
-        if (isTyping) return 1;
-        var now = Date.now(),
-            lastMsg = chatMessages.peek(),
-            diff = now - lastMsg.time;
-
-        return 1 - Math.min(Math.max((diff - chatAlphaWait) * .001, 0), 1);
-    }
-
-    function drawTouch() {
-        if (touchMove) {
-            mainCtx.save();
-            mainCtx.beginPath();
-            mainCtx.arc(touchStartX, touchStartY, 10, 0, PI_2, false)
-        }
-    }
-
-    function drawChat() {
-        if (!settings.showChat || chatMessages.length === 0) {
-            chatCanvas = null;
-            return;
-        }
-
-        if (!chatCanvas) chatCanvas = document.createElement('canvas');
-
-        var ctx = chatCanvas.getContext('2d'),
-            l,
-            now = Date.now(),
-            i = 0, msg,
-            lastMsg = chatMessages.peek(),
-            fW, aW = 0,
-            alpha = getChatAlpha();
-
-        if (alpha === 0) {
-            chatCanvas = null;
-            chatAlphaWait = 0;
-            return;
-        }
-
-        while ((l = chatMessages.length) > 15) chatMessages.shift(); // Remove older messages
-
-        for ( ; i < l; i++) {
-            msg = chatMessages[i];
-            ctx.font = '18px Ubuntu';
-            aW = Math.max(aW, 20 + ctx.measureText(msg.name + ":").width + ctx.measureText(" " + msg.message).width);
-        }
-
-        chatCanvas.width = aW;
-        chatCanvas.height = l * 20 + 20;
-        ctx.fillStyle = "#000000";
-        ctx.globalAlpha = alpha * .2;
-        ctx.fillRect(0, 0, chatCanvas.width, chatCanvas.height);
-
-        ctx.globalAlpha = alpha;
-        for (i = 0; i < l; i++) {
-            msg = chatMessages[i];
-
-            // Name
-            ctx.fillStyle = msg.nameColor;
-            ctx.font = '18px Ubuntu';
-            fW = ctx.measureText(msg.name + ":").width;
-            ctx.font = '18px Ubuntu';
-            ctx.fillText(msg.name + ":", 10, 5 + 20 * (i + 1));
-
-            // Message
-            ctx.font = '18px Ubuntu';
-            ctx.fillStyle = "#FFFFFF";
-            ctx.fillText(" " + msg.message, 10 + fW, 5 + 20 * (i + 1));
-        }
-    }
-
-    function drawServerStat() {
-        if (!serverStats) {
-            serverStatCanvas = null;
-            return;
-        }
-
-        if (!serverStatCanvas) serverStatCanvas = document.createElement('canvas');
-        var ctx = serverStatCanvas.getContext('2d'), a, b, c;
-
-        ctx.font = '14px Ubuntu';
-        serverStatCanvas.width = 4 + Math.max(
-            ctx.measureText(serverStats.name).width,
-            ctx.measureText(serverStats.mode).width,
-            ctx.measureText((a = serverStats.playersTotal + " / " + serverStats.playersLimit + " players")).width,
-            ctx.measureText((b = serverStats.playersAlive + " playing")).width,
-            ctx.measureText((c = serverStats.playersSpect + " spectating")).width
-        );
-        serverStatCanvas.height = 85;
-
-        ctx.font = '14px Ubuntu';
-        ctx.fillStyle = settings.darkTheme ? "#AAAAAA" : "#000000";
-        ctx.globalAlpha = 1;
-        ctx.fillText(serverStats.name, 2, 16);
-        ctx.fillText(serverStats.mode, 2, 32);
-        ctx.fillText(a, 2, 48);
-        ctx.fillText(b, 2, 64);
-        ctx.fillText(c, 2, 80);
-    }
-
-    function drawLeaderboard() {
-        if (leaderboardType === -1) return;
-
-        if (leaderboard.length === 0 || !settings.showNames) {
-            leaderboardCanvas = null;
-            return;
-        }
-        if (!leaderboardCanvas) leaderboardCanvas = document.createElement('canvas');
-
-        var ctx = leaderboardCanvas.getContext('2d'),
-            l = leaderboard.length;
-            width = leaderboardType !== 50 ? 60 + 24 * l : 240,
-            i = 0;
-
-        leaderboardCanvas.width = 200;
-        leaderboardCanvas.height = width;
-
-        ctx.globalAlpha = .4;
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, 200, width);
-
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = "#FFFFFF";
-        ctx.font = "30px Ubuntu";
-        ctx.fillText("Leaderboard", 100 - ctx.measureText("Leaderboard").width / 2, 40);
-
-        if (leaderboardType === 0x32) {
-            // Pie chart
-            ctx.beginPath();
-            var last = 0;
-            for ( ; i < l; i++) {
-                ctx.fillStyle = teamColors[i];
-                ctx.moveTo(100, 140);
-                ctx.arc(100, 140, 80, last, (last += leaderboard[i] * PI_2), false);
-                ctx.fill();
-            }
-            ctx.closePath();
-        } else {
-            // Text-based
-            var o, me = false, w, start;
-            ctx.font = "20px Ubuntu";
-            for ( ; i < l; i++) {
-                o = leaderboard[i];
-                if (leaderboardType === 0x31) {
-                    me = o.me;
-                    o = o.name;
-                }
-
-                // Replace {skin} with empty string
-                var reg = /\{([\w]+)\}/.exec(o);
-                if (reg) if (reg.length === 2) o = o.replace(reg[0], "").trim();
-
-                (leaderboardType === 0x31) && (o = o || "An unnamed cell");
-
-                ctx.fillStyle = me ? "#FFAAAA" : "#FFFFFF";
-                o = (i + 1) + ". " + o;
-                var start = ((w = ctx.measureText(o).width) > 200) ? 2 : 100 - w * 0.5;
-                ctx.fillText(o, start, 70 + 24 * i);
-            }
-        }
-    }
-
-    function drawGrid() {
-        mainCtx.save();
-        mainCtx.strokeStyle = settings.darkTheme ? "#AAAAAA" : "#000000";
-        mainCtx.globalAlpha = .2;
-        var step = 50
-            cW = mainCanvas.width / drawZoom, cH = mainCanvas.height / drawZoom,
-            startLeft = (-centerX + cW * .5) % step,
-            startTop = (-centerY + cH * .5) % step,
-            i = startLeft;
-
-        mainCtx.scale(drawZoom, drawZoom);
-
-        // Left -> Right
-        for ( ; i < cW; i += step) {
-            mainCtx.moveTo(i, -.5);
-            mainCtx.lineTo(i, cH);
-        }
-
-        // Top -> Bottom
-        for (i = startTop; i < cH; i += step) {
-            mainCtx.moveTo(-.5, i);
-            mainCtx.lineTo(cW, i);
-        }
-        mainCtx.stroke();
-        mainCtx.restore();
-    }
-
-    function drawLoop() {
-        drawGame(true);
-        window.requestAnimationFrame(drawLoop);
-    }
-
-    function drawGame() {
-        var dr = Date.now(), passed;
-        fps += (1000 / (passed = dr - lastDrawTime) - fps) * .1;
-        lastDrawTime = dr;
-        isNaN(fps) && (fps = 0);
-
-        var cW = mainCanvas.width = wHandle.innerWidth,
-            cH = mainCanvas.height = wHandle.innerHeight,
-            cW2 = cW / 2,
-            cH2 = cH / 2,
-            newDrawZoom = 0,
-            viewMult = viewMultiplier(),
-            i, l;
-
-
-        var nodesCopy = nodes.concat(deadNodes);
-
-        drawing = true;
-
-        // Background
-        mainCtx.save();
-        mainCtx.fillStyle = settings.darkTheme ? "#111111" : "#F2FBFF";
-        mainCtx.fillRect(0, 0, cW, cH);
-        mainCtx.restore();
-
-        var tx, ty, z1;
-
-        // Grid
-        if (settings.showGrid && !settings.qualityRef.overrideGrid) drawGrid();
-
-        // Update size & position & view update
-        l = nodesCopy.length;
-        for (i = 0; i < l; i++) {
-            n = nodesCopy[i];
-            dt = Math.max(Math.min((dr - n.appStamp) / 120, 1), 0)
-            n.updateAppearance(dr, dt);
-        }
-        viewUpdate();
-
-        // Scale & translate for cell drawing
-        mainCtx.translate((tx = cW2 - centerX * drawZoom), (ty = cH2 - centerY * drawZoom));
-        mainCtx.scale(drawZoom, drawZoom);
-
-        nodesCopy.sort(nodeSort);
-
-        // Draw cells
-        l = nodesCopy.length;
-        for (i = 0; i < l; i++) {
-            n = nodesCopy[i];
-            n.draw(dr);
-        }
-
-        // Return back to normal
-        mainCtx.scale((z1 = 1 / drawZoom), z1);
-        mainCtx.translate(-tx, -ty);
-
-        // Scale with viewMult for readability
-        mainCtx.scale(viewMult, viewMult);
-
-        // Score & FPS drawing
-        var topText = ~~fps + " FPS",
-            topSize = 20 * viewMult;
-        if (latency !== -1) topText += ", " + latency + "ms ping";
-
-        mainCtx.fillStyle = settings.darkTheme ? "#FFFFFF" : "#000000";
-        if (userScore > 0) {
-            var scoreSize = 32 * viewMult;
-            mainCtx.font = ~~scoreSize + "px Ubuntu";
-            mainCtx.fillText("Score: " + userScore, 2, 32 * viewMult);
-            mainCtx.font = ~~topSize + "px Ubuntu";
-            mainCtx.fillText(topText, 2, 58 * viewMult);
-            settings.qualityRef.drawStat && serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 60 * viewMult);
-        } else {
-            mainCtx.font = ~~topSize + "px Ubuntu";
-            mainCtx.fillText(topText, 2, 22 * viewMult);
-            settings.qualityRef.drawStat && serverStatCanvas && mainCtx.drawImage(serverStatCanvas, 2, 24 * viewMult);
-        }
-        leaderboardCanvas && mainCtx.drawImage(leaderboardCanvas, cW / viewMult - leaderboardCanvas.width - 10, 10);
-
-        // Chat alpha update
-        if (chatMessages.length > 0) if (getChatAlpha() !== 1) drawChat();
-        chatCanvas && mainCtx.drawImage(chatCanvas, 10, (cH - 50) / viewMult - chatCanvas.height);
-
-        // Scale back to normal
-        mainCtx.scale(viewMult = 1 / viewMult, viewMult);
-
-        // Draw touches
-        drawTouch();
-
-        drawing = false;
-
-        garbageCollection();
-    }
-
-    function viewUpdate() {
-        // Zoom, position & score update
-        var l = myNodes.length,
-            newDrawZoom,
-            viewMult = viewMultiplier(),
-            newScore = 0;
-
-        if (l > 0) {
-            var ncX = 0,
-                ncY = 0;
-            var rl = 0;
-            viewZoom = 0;
-            for (i = 0; i < l; i++) {
-                n = nodesID[myNodes[i]];
-                if (!n) continue;
-                viewZoom += n.size;
-                newScore += ~~(n.nSize * n.nSize * .01);
-                ncX += n.x;
-                ncY += n.y;
-                rl++;
-            }
-            //console.log(rl, ncX, ncY);
-            if (rl > 0) {
-                userScore = Math.max(newScore, userScore);
-                ncX /= rl;
-                ncY /= rl;
-                centerX += (~~ncX - centerX) * .4;
-                centerY += (~~ncY - centerY) * .4;
-                viewZoom = Math.pow(Math.min(64 / viewZoom, 1), .4);
-                newDrawZoom = viewZoom;
-            } else {
-                // Cells haven't been added yet
-                viewZoom = 1;
-                newDrawZoom = 1;
-            }
-        } else {
-            centerX += (_cX - centerX) * .02;
-            centerY += (_cY - centerY) * .02;
-            newDrawZoom = _cZoom;
-        }
-        drawZoom += (newDrawZoom * viewMult * mouseZoom - drawZoom) * .11;
-    }
-
-    function nodeSort(a, b) {
-        return a.size === b.size ? a.id - b.id : a.size - b.size;
-    }
-
-    function viewMultiplier() {
-        return _viewMult;
-    }
-
-    function Cell(id, x, y, size, name, color, skin, time, flags) {
-        this.id = id;
-        this.x = this.nx = x;
-        this.y = this.ny = y;
-        this.size = this.nSize = size;
-        this.setName(name);
-        this.setColor(color);
-        this.skin = skin;
-        if (flags) {
-            this.isEjected = !!(flags & 0x20);
-            this.isVirus = !!(flags & 0x01);
-            this.isAgitated = !!(flags & 0x10);
-            (this.isEjected || this.isVirus || this.isAgitated) && (this.notPellet = true);
-        }
-        this.birthStamp = this.updateStamp = time;
-    }
-
-    Cell.prototype = {
-        destroyed: false,
-        id: 0,
-        x: 0,
-        y: 0,
-        size: 0,
-        name: 0,
-        color: "#FFFFFF",
-        nameSkin: "",
-        skin: "",
-        updateStamp: -1,
-        birthStamp: -1,
-        deathStamp: -1,
-        appStamp: -1,
-        nx: 0,
-        ny: 0,
-        nSize: 0,
-        killer: null,
-        rigidPoints: [],
-        isEjected: false,
-        isPellet: false,
-        notPellet: false,
-        isVirus: false,
-        isAgitated: false,
-        strokeColor: "#AAAAAA",
-        _nameSize: 0,
-        _meCache: null, // If it's a pellet it'll draw from this cache
-        _meW: null,
-        _meH: null,
-        updateAppearance: function(time, dt) {
-            if (this.destroyed)
-                if (time - this.deathStamp > 200 || !this.killer || this.size < 4) {
-                    // Fully remove
-                    var i;
-                    ((i = deadNodes.indexOf(this)) > -1) && deadNodes.splice(i, 1);
-                }
-            if (this.killer) {
-                this.nx = this.killer.x;
-                this.ny = this.killer.y;
-                this.nSize = 0;
-            }
-            this.x += (this.nx - this.x) * dt;
-            this.y += (this.ny - this.y) * dt;
-            this.size += (this.nSize - this.size) * dt;
-            this._nameSize = ~~(Math.max(~~(.3 * this.nSize), 24) / 4) * 4;
-        },
-        setName: function(name) {
-            var reg = /\{([\w]+)\}/.exec(name);
-            if (reg) if (reg.length === 2) {
-                this.nameSkin = reg[1].toLowerCase();
-                this.name = name.replace(reg[0], "").trim();
-                return;
-            }
-            this.name = name;
-        },
-        setSkin: function(skin) {
-            this.skin = skin[0] === "%" ? skin.replace("%", "") : skin;
-        },
-        setColor: function(color) {
-            this.color = color;
-            var r = (~~(parseInt(color.substr(1, 2), 16) * 0.9)).toString(16),
-                g = (~~(parseInt(color.substr(3, 2), 16) * 0.9)).toString(16),
-                b = (~~(parseInt(color.substr(5, 2), 16) * 0.9)).toString(16);
-            if (r.length == 1) r = "0" + r;
-            if (g.length == 1) g = "0" + g;
-            if (b.length == 1) b = "0" + b;
-            this.strokeColor = "#" + r + g + b;
-        },
-        destroy: function(time) {
-            delete nodesID[this.id];
-            var i;
-            ((i = nodes.indexOf(this)) !== -1) && nodes.splice(i, 1);
-            ((i = myNodes.indexOf(this.id)) !== -1) && myNodes.splice(i, 1);
-            if (i > -1 && myNodes.length === 0) {
-                _cX = centerX;
-                _cY = centerY;
-                _cZoom = viewZoom;
-                userScore = 0;
-                showESCOverlay();
-            }
-            deadNodes.push(this);
-            this.deathStamp = time;
-            this.destroyed = true;
-        },
-        updatePoints: function(animated, jagged, dt) {
-            // Update points
-            var pointAmount = this.size,
-                minPointAmount = jagged ? 90 : (this.isPellet ? 5 : 16),
-                x = this.x,
-                y = this.y,
-                maxSizeRemove = this.size * .16,
-                i = 0, sz, step, pt, px, py, temp, diff, nDiff;
-
-            !this.isVirus && (pointAmount *= drawZoom);
-            this.isEjected && (pointAmount *= .5);
-            pointAmount = Math.max(~~pointAmount, minPointAmount);
-            jagged && (pointAmount = ~~(pointAmount * .5) * 2);
-
-            step = PI_2 / pointAmount;
-            var newPoints = [];
-            for ( ; i < pointAmount; i++) {
-                var nDiff;
-                if (this.rigidPoints[i] && animated) {
-                    // Animate the point
-                    pt = this.rigidPoints[i];
-                    nDiff = pt.newDiff;
-                    diff = pt.diff + (nDiff - pt.diff) * dt;
-                    if (toleranceCompare(diff, nDiff, .05)) nDiff = getNextDiff(jagged, i, pointAmount, animated);
-                } else if (animated) {
-                    // New point
-                    nDiff = getNextDiff(jagged, i, pointAmount, animated);
-                    diff = 0;
-                } else {
-                    // Non-animated point
-                    diff = nDiff = getNextDiff(jagged, i, pointAmount, animated);
-                }
-                sz = this.size + diff;
-
-                // Calculate position
-                var sin = Math.sin(i * step), cos = Math.cos(i * step);
-                px = x + sin * sz;
-                py = y + cos * sz;
-
-                var cx = 0, cy = 0;
-                // Point collision check (doesn't work)
-                /*if (qTree) {
-                    var id = this.id,
-                        dx, dy;
-                    qTree.retrieve2(cx, cy, 1, 1, function(a) {
-                        if (a.refID !== id && 25 > (cx - a.x) * (cx - a.x) + (cy - a.y) * (cy - a.y)) {
-                            console.log('collision')
-                        }
-                    });
-                }*/
-                px += cx;
-                py += cy;
-
-                // Border check
-                if (px < border.left) cx -= sin * Math.min(border.left - px, maxSizeRemove);
-                if (px > border.right) cx -= sin * Math.min(px - border.right, maxSizeRemove);
-                if (py < border.top) cy -= cos * Math.min(border.top - py, maxSizeRemove);
-                if (py > border.bottom) cy -= cos * Math.min(py - border.bottom, maxSizeRemove);
-                px += cx;
-                py += cy;
-
-                newPoints.push({
-                    refID: this.id,
-                    size: sz,
-                    diff: diff,
-                    newDiff: nDiff,
-                    x: px,
-                    y: py
-                });
-            }
-
-            this.rigidPoints = newPoints;
-        },
-        draw: function(time) {
-            var dt = Math.min(Math.max((time - this.appStamp) / 120, 0), 1);
-            this.appStamp = time;
-            mainCtx.save();
-            this.drawShape(dt);
-
-            // Text drawing
-            if (this.notPellet) {
-                var nameDraw = settings.showNames && this.name !== "" && !this.isVirus;
-                if (nameDraw) drawText(this.x, this.y, this.name, this._nameSize, false);
-
-                if (settings.showMass && (myNodes.indexOf(this.id) !== -1 ||
-                    (myNodes.length === 0 && settings.qualityRef.drawMassSpectate)) && this.size >= 20) {
-
-                    var text = Math.ceil(this.size * this.size * .01).toString();
-                    if (nameDraw)
-                        drawText(this.x, this.y + Math.max(this.size * .22, this._nameSize * .8), text, this._nameSize * .5, true);
-                    else
-                        drawText(this.x, this.y, text, this._nameSize * .5, true);
-                }
-            }
-            mainCtx.restore();
-        },
-        drawShape: function(dt) {
-            var complex = this.wasComplexDrawing = settings.fastRenderMax <= drawZoom,
-                jagged = this.isVirus;
-
-            mainCtx.lineWidth = settings.qualityRef.cellOutline ? (this.isEjected ? 0 : this.size > 20 ? Math.max(this.size * .01, 10) : 0) : 0;
-            mainCtx.lineCap = "round";
-            mainCtx.lineJoin = jagged ? "miter" : "round";
-            mainCtx.fillStyle = settings.showColor ? this.color : "#FFFFFF";
-            mainCtx.strokeStyle = settings.showColor ? this.strokeColor : "#E5E5E5";
-
-            if (complex || jagged || this.isAgitated) {
-                mainCtx.beginPath();
-                this.updatePoints(complex, jagged, dt);
-                var points = this.rigidPoints;
-
-                mainCtx.moveTo(
-                    points[0].x,
-                    points[0].y
-                );
-
-                for (var i = 1, l = points.length; i < l; i++) {
-                    mainCtx.lineTo(
-                        points[i].x,
-                        points[i].y
-                    );
-                }
-
-                mainCtx.lineTo(
-                    points[0].x,
-                    points[0].y
-                );
-                mainCtx.fill();
-                mainCtx.stroke();
-                this.drawSkin();
-                mainCtx.closePath();
-            } else {
-                this.rigidPoints = [];
-                if (this._meCache)
-                    // Cached drawing exists - use it
-                    mainCtx.drawImage(this._meCache, this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
-                else {
-                    mainCtx.beginPath();
-                    mainCtx.arc(this.x, this.y, this.size - mainCtx.lineWidth * .5 + .5, 0, PI_2, false);
-                    mainCtx.fill();
-                    settings.qualityRef.cellOutline && mainCtx.stroke();
-                    this.drawSkin();
-                    mainCtx.closePath();
-                }
-            }
-        },
-        drawSkin: function() {
-            if (settings.qualityRef.overrideSkins) return;
-
-            var skin = this.skin || this.nameSkin;
-
-            if (settings.showSkins && skin != '' && -1 !== knownSkins.indexOf(skin)) {
-                if (!loadedSkins.hasOwnProperty(skin)) {
-                    // Download skin
-                    loadedSkins[skin] = new Image;
-                    loadedSkins[skin].src = SKIN_URL + skin + '.png';
-                }
-                // Set skin to draw
-                if (0 != loadedSkins[skin].width && loadedSkins[skin].complete) {
-                    loadedSkins[skin].accessTime = Date.now();
-					mainCtx.save();
-                    mainCtx.clip();
-                    mainCtx.drawImage(loadedSkins[skin], this.x - this.size, this.y - this.size, 2 * this.size, 2 * this.size);
-					mainCtx.restore();
-                }
-            }
-        }
-    };
-
-    function toleranceCompare(a, b, t) {
-        var d = a - b;
-        (d < 0) && (d = -d);
-        return d <= t;
-    }
-
-    function getNextDiff(jagged, index, pointAmount, animated) {
-        if (animated) {
-            var maxDiff = jagged ? 3 : 1.7 * .6;
-            if (jagged) return (index % 2 === 1 ? -maxDiff : maxDiff) + Math.random() - 1.5;
-            return (Math.random() - .5) * maxDiff * 2;
-        }
-        if (jagged) return index % 2 === 1 ? -3 : 3;
-        return 0;
-    }
-
-    var textCache = { },
-        massCache = { };
-
-    function garbageCollection() {
-        var now = Date.now();
-
-        for (var i in textCache) {
-            for (var j in textCache[i]) {
-                if (now - textCache[i][j].accessTime > 3000) {
-                    // Text unused for 3 seconds, delete it to restore memory
-                    delete textCache[i][j];
-                    if (Object.keys(textCache[i]).length === 0) delete textCache[i]; // Full removal
-                }
-            }
-        }
-        for (i in massCache) {
-            if (now - massCache[i].accessTime > 3000) {
-                // Mass numbers unused for 3 seconds, delete it to restore memory
-                delete massCache[i];
-            }
-        }
-
-        for (var i in loadedSkins) {
-            if (now - loadedSkins[i].accessTime > 60000) {
-                // Loaded skin image unused for 60 seconds, delete it to restore memory
-                delete loadedSkins[i];
-            }
-        }
-    }
-
-    function newTextCache(value, size) {
-        var canvas = document.createElement('canvas'),
-            ctx = canvas.getContext('2d'),
-            lineWidth = settings.showTextOutline ? settings.qualityRef.getTextLineWidth(size) : 0;
-
-        // Why set font twice???
-        ctx.font = size + 'px Ubuntu';
-        canvas.width = ctx.measureText(value).width;
-        canvas.height = size * 1.2;
-        ctx.font = size + 'px Ubuntu';
-        ctx.fillStyle = lineWidth === 0 && !settings.showColor ? "#000000" : "#FFFFFF";
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = "#000000";
-
-        (lineWidth > 0) && ctx.strokeText(value, 0, size);
-        ctx.fillText(value, 0, size);
-
-        (!textCache[value]) && (textCache[value] = { });
-        textCache[value][size] = {
-            canvas: canvas,
-            accessTime: Date.now()
-        };
-        return canvas;
-    }
-
-    function newMassCache(size) {
-        var temp;
-        var canvasList = [
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 0
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 1
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 2
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 3
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 4
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 5
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 6
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 7
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 8
-                { c: (temp = document.createElement('canvas')), t: temp.getContext('2d'), w: NaN }, // 9
-            ],
-            i = 0,
-            lineWidth = settings.showTextOutline ? settings.qualityRef.getTextLineWidth(size) : 0,
-            ctx, canvas, height = size + lineWidth * 5 + 2;
-
-        for ( ; i < 10; i++) {
-            canvas = canvasList[i].c;
-            ctx = canvasList[i].t;
-            ctx.font = size + 'px Ubuntu';
-            canvasList[i].w = (canvas.width = ctx.measureText(i).width + lineWidth * 3) - lineWidth * 3;
-            canvas.height = height;
-            ctx.font = size + 'px Ubuntu';
-            ctx.fillStyle = lineWidth === 0 && !settings.showColor ? "#000000" : "#FFFFFF";
-            ctx.lineWidth = lineWidth;
-            ctx.strokeStyle = "#000000";
-
-            (lineWidth > 0) && ctx.strokeText(i, lineWidth, size);
-            ctx.fillText(i, lineWidth, size);
-        }
-
-        massCache[size] = {
-            canvasList: canvasList,
-            height: height,
-            accessTime: Date.now()
-        };
-
-        return massCache[size];
-    }
-
-    function findTextMatch(value, size) {
-        if (!textCache[value]) return newTextCache(value, size); // No text with equal string
-
-        var tolerance = ~~(size * .1),
-            b;
-
-        if ((b = textCache[value][size])) {
-            b.accessTime = Date.now();
-            return b.canvas;
-        }
-        var i = 1, j, l;
-
-        // Search with identical sized text
-        for ( ; i < tolerance; i++) {
-            // Larger than requested text sizes are better if no match is found
-            if ((b = textCache[value][size + i])) {
-                b.accessTime = Date.now();
-                return b.canvas;
-            }
-            // In any case check for smaller size too
-            if ((b = textCache[value][size - i])) {
-                b.accessTime = Date.now();
-                return b.canvas;
-            }
-        }
-
-        // No match
-        return newTextCache(value, size);
-    }
-
-    function findMassMatch(size) {
-        if (massCache[size]) {
-            massCache[size].accessTime = Date.now();
-            return massCache[size];
-        }
-
-        var b, tolerance = ~~(size * .1), i = 0;
-
-        // Identical search way as with text
-        for ( ; i < tolerance; i++) {
-            // Smaller than requested mass sizes are favored now
-            if ((b = massCache[size - i])) {
-                b.accessTime = Date.now();
-                return b;
-            }
-            if ((b = massCache[size + i])) {
-                b.accessTime = Date.now();
-                return b;
-            }
-        }
-
-        // No match
-        return newMassCache(size);
-    }
-
-    function drawText(x, y, value, size, isMass) {
-        if (size > 5000) return; // Integrity check
-
-        var identical;
-        if (isMass) {
-            identical = findMassMatch(size);
-            var str = value.toString(),
-                maxW = 0, nowW = 0,
-                i = 0,
-                currentNumber;
-            y -= identical.height * .5;
-
-            // Measure half-width
-            for ( ; i < str.length; i++)
-                maxW += identical.canvasList[parseInt(str[i])].w;
-            x -= maxW * .5;
-
-            // Draw char by char
-            for (i = 0; i < str.length; i++) {
-                currentNumber = identical.canvasList[parseInt(str[i])];
-                mainCtx.drawImage(currentNumber.c, x, y);
-                x += currentNumber.w;
-            }
-        } else {
-            identical = findTextMatch(value, size),
-                w = identical.width,
-                h = identical.height;
-
-            mainCtx.drawImage(identical, x - w * .5, y - h * .5, w, h);
-        }
-    }
-
-    function buildQTree() {
-        if (.4 > drawZoom) qTree = null;
-        else {
-            var a = Number.POSITIVE_INFINITY,
-                b = Number.POSITIVE_INFINITY,
-                c = Number.NEGATIVE_INFINITY,
-                d = Number.NEGATIVE_INFINITY,
-                e = 0,
-                f = nodes.length,
-                added = [];
-
-            for (var i = 0; i < f; i++) {
-                var node = nodes[i];
-                if (!node) continue;
-                if (node.rigidPoints.length > 0) {
-                    e = Math.max(node.size, e);
-                    a = Math.min(node.x, a);
-                    b = Math.min(node.y, b);
-                    c = Math.max(node.x, c);
-                    d = Math.max(node.y, d);
-                    added.push(node);
-                }
-            }
-
-            qTree = Quad.init({
-                minX: a - (e + 100),
-                minY: b - (e + 100),
-                maxX: c + (e + 100),
-                maxY: d + (e + 100),
-                maxChildren: 64,
-                maxDepth: 4
-            });
-
-            f = added.length;
-            for (i = 0; i < c; i++) {
-                node = added[i];
-                if (!node) continue;
-                b = node.rigidPoints.length;
-                for (a = 0; a < b; ++a) qTree.insert(node.rigidPoints[a]);
-            }
-        }
-    }
-
     wHandle.setserver = function(arg) {
-        if (CONNECT_TO != arg) {
-            Disconnect();
-            Connect(CONNECT_TO = arg);
-        }
+        if (wsUrl === arg) return;
+        wsInit(arg);
     };
     wHandle.setDarkTheme = function(a) {
         settings.darkTheme = a;
-        drawServerStat();
+        drawStats();
     };
     wHandle.setShowMass = function(a) {
         settings.showMass = a;
@@ -1696,54 +1121,31 @@
     };
     wHandle.setColors = function(a) {
         settings.showColor = !a;
-        if (settings.qualityRef.getTextLineWidth(100) === 0) {
-            // Reset caches since if setColors is false all text is black
-            textCache = { };
-            massCache = { };
-        }
     };
     wHandle.setNames = function(a) {
         settings.showNames = a;
         drawLeaderboard();
     };
-    wHandle.setSmooth = function(a) {
-        settings.fastRenderMax = a ? 4 : settings.qualityRef.smoothRender;
-    };
     wHandle.setChatHide = function(a) {
         settings.showChat = !a;
         drawChat();
     };
-    wHandle.setTextOutline = function(a) {
-        settings.showTextOutline = !a;
-        textCache = { };
-        massCache = { };
-    };
-    wHandle.setQuality = function(a) {
-        if (qualitySettings[a] && settings.quality !== a) {
-            settings.quality = a;
-            settings.qualityRef = qualitySettings[a];
-            settings.fastRenderMax = settings.fastRenderMax == 4 ? 4 : settings.qualityRef.smoothRender;
-            textCache = { };
-            massCache = { };
-        }
-    };
     wHandle.spectate = function(a) {
-        WsSend(UINT8_CACHE[1]);
-        userScore = 0;
+        wsSend(UINT8_CACHE[1]);
+        stats.maxScore = 0;
         hideESCOverlay();
     };
     wHandle.play = function(a) {
-        Play(a);
+        sendPlay(a);
         hideESCOverlay();
     };
     wHandle.openSkinsList = function() {
-        if ($('#inPageModalTitle').text() != "Skins") {
-            $.get('include/gallery.php').then(function(data) {
-                $('#inPageModalTitle').text("Skins");
-                $('#inPageModalBody').html(data);
+        if ($("#inPageModalTitle").text() != "Skins") {
+            $.get("include/gallery.php").then(function(data) {
+                $("#inPageModalTitle").text("Skins");
+                $("#inPageModalBody").html(data);
             });
         }
     };
-
-    wHandle.onload = loadInit;
+    wHandle.onload = init;
 })(window, window.jQuery);
