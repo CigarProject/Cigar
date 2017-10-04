@@ -139,6 +139,13 @@
             return decodeURIComponent(escape(s));
         }
     };
+	var log = {
+        verbosity: 4,
+        error: function(a) { if (log.verbosity <= 0) return; console.error(a); },
+        warn: function(a) { if (log.verbosity <= 1) return; console.warn(a); },
+        info: function(a) { if (log.verbosity <= 2) return; console.info(a); },
+        debug: function(a) { if (log.verbosity <= 3) return; console.debug(a); }
+    };
 
     var wsUrl = null,
         SKIN_URL = "./skins/",
