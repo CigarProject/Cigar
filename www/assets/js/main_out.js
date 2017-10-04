@@ -5,7 +5,7 @@
     Date.now || (Date.now = function() {
         return (+new Date).getTime();
     });
-	var LOAD_START = Date.now();
+    var LOAD_START = Date.now();
     Array.prototype.peek = function() {
         return this[this.length - 1];
     };
@@ -139,7 +139,7 @@
             return decodeURIComponent(escape(s));
         }
     };
-	var log = {
+    var log = {
         verbosity: 4,
         error: function(a) { if (log.verbosity <= 0) return; console.error(a); },
         warn: function(a) { if (log.verbosity <= 1) return; console.warn(a); },
@@ -510,18 +510,17 @@
     if (null !== wHandle.localStorage) {
         wjQuery(window).load(function() {
             wjQuery(".save").each(function() {
-                var id = $(this).data("box-id");
+                var id = wjQuery(this).data("box-id");
                 var value = wHandle.localStorage.getItem("checkbox-" + id);
                 if (value && value == "true" && 0 != id) {
-                    $(this).prop("checked", "true");
-                    $(this).trigger("change");
-                } else if (id == 0 && value != null) {
-                    $(this).val(value);
-                }
+                    wjQuery(this).prop("checked", "true");
+                    wjQuery(this).trigger("change");
+                } else if (id == 0 && value != null)
+                    wjQuery(this).val(value);
             });
             wjQuery(".save").change(function() {
-                var id = $(this).data('box-id');
-                var value = (id == 0) ? $(this).val() : $(this).prop('checked');
+                var id = wjQuery(this).data("box-id");
+                var value = (id == 0) ? wjQuery(this).val() : wjQuery(this).prop("checked");
                 wHandle.localStorage.setItem("checkbox-" + id, value);
             });
         });
@@ -766,7 +765,7 @@
                 mainCanvas.width / viewMult - 10 - leaderboard.canvas.width,
                 10);
         if (chat.visible || isTyping || true) {
-            mainCtx.globalAlpha = 1//isTyping ? 1 : Math.max(1000 - syncAppStamp + chat.waitUntil, 0) / 1000;
+            mainCtx.globalAlpha = isTyping ? 1 : Math.max(1000 - syncAppStamp + chat.waitUntil, 0) / 1000;
             mainCtx.drawImage(
                 chat.canvas,
                 10 / viewMult,
@@ -1095,8 +1094,8 @@
         mainCanvas.focus();
         function handleWheel(event) {
             mouseZ *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
-            //1 > mouseZ && (mouseZ = 1);
-            //mouseZ > 4 / mouseZ && (mouseZ = 4 / mouseZ);
+            1 > mouseZ && (mouseZ = 1);
+            mouseZ > 4 / mouseZ && (mouseZ = 4 / mouseZ);
         }
         if (/firefox/i.test(navigator.userAgent))
             document.addEventListener("DOMMouseScroll", handleWheel, false);
@@ -1251,12 +1250,11 @@
         hideESCOverlay();
     };
     wHandle.openSkinsList = function() {
-        if ($("#inPageModalTitle").text() != "Skins") {
-            $.get("include/gallery.php").then(function(data) {
-                $("#inPageModalTitle").text("Skins");
-                $("#inPageModalBody").html(data);
-            });
-        }
+        if (wjQuery("#inPageModalTitle").text() === "Skins") return;
+        wjQuery.get("include/gallery.php").then(function(data) {
+            wjQuery("#inPageModalTitle").text("Skins");
+            wjQuery("#inPageModalBody").html(data);
+        });
     };
     wHandle.onload = init;
 })(window, window.jQuery);
