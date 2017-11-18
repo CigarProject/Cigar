@@ -464,7 +464,13 @@
         score: NaN,
         maxScore: 0
     });
-
+    wHandle.exposed = {
+        cells: cells,
+        border: border,
+        leaderboard: leaderboard,
+        chat: chat,
+        stats: stats
+    };
     var ws = null;
     var wsUrl = null;
     var disconnectDelay = 1000;
@@ -730,12 +736,12 @@
         mainCtx.restore();
     }
     function drawMinimap() {
-        if (border.centerX !== 0 || border.centerY !== 0)
+        if (border.centerX !== 0 || border.centerY !== 0 || !settings.showMinimap)
             // scramble level 2+ makes the minimap unusable
             // and is detectable with a non-zero map center
             return;
         mainCtx.save();
-        var targetSize = 200 / viewMult;
+        var targetSize = 200;
         var width = targetSize * (border.width / border.height);
         var height = targetSize * (border.height / border.width);
         var beginX = mainCanvas.width / viewMult - width;
@@ -1269,6 +1275,12 @@
         log.info(`init done in ${Date.now() - LOAD_START}ms`);
         gameReset();
         showESCOverlay();
+
+        if (settings.allowGETipSet && wHandle.location.search) {
+            var div = /ip=([\w\W]+):([0-9]+)/.exec(wHandle.location.search.slice(1))
+            if (div) wsInit(`${div[1]}:${div[2]}`);
+        }
+
         window.requestAnimationFrame(drawGame);
     }
     wHandle.setserver = function(arg) {
@@ -1295,6 +1307,9 @@
     wHandle.setChatHide = function(a) {
         settings.showChat = !a;
         drawChat();
+    };
+    wHandle.setMinimap = function(a) {
+        settings.showMinimap = !a;
     };
     wHandle.spectate = function(a) {
         wsSend(UINT8_CACHE[1]);
