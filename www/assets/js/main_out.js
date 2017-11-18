@@ -328,11 +328,15 @@
                 border.top = reader.getFloat64();
                 border.right = reader.getFloat64();
                 border.bottom = reader.getFloat64();
+                border.width = border.right - border.left;
+                border.height = border.bottom - border.top;
+                border.centerX = (border.left + border.right) / 2;
+                border.centerY = (border.top + border.bottom) / 2;
                 if (data.data.byteLength === 33) break;
                 if (!mapCenterSet) {
                     mapCenterSet = true;
-                    cameraX = targetX = (border.right - border.left) / 2;
-                    cameraY = targetY = (border.bottom - border.top) / 2;
+                    cameraX = targetX = border.centerX;
+                    cameraY = targetY = border.centerY;
                     cameraZ = targetZ = 1;
                 }
                 reader.getUint32(); // game type
@@ -430,7 +434,11 @@
         left: -2000,
         right: 2000,
         top: -2000,
-        bottom: 2000
+        bottom: 2000,
+        width: 4000,
+        height: 4000,
+        centerX: -1,
+        centerY: -1
     });
     var leaderboard = Object.create({
         type: NaN,
@@ -456,6 +464,13 @@
         score: NaN,
         maxScore: 0
     });
+    wHandle.exposed = {
+        cells: cells,
+        border: border,
+        leaderboard: leaderboard,
+        chat: chat,
+        stats: stats
+    };
     var ws = null;
     var wsUrl = null;
     var disconnectDelay = 1000;
@@ -493,6 +508,7 @@
         showTextOutline: true,
         showColor: true,
         showSkins: true,
+        showMinimap: true,
         darkTheme: false,
         allowGETipSet: false
     };
@@ -683,7 +699,7 @@
                     text = leaderboard.items[i].name,
                     isMe = leaderboard.items[i].me;
 
-                // Replace {skin} with empty string
+                // replace {skin} with empty string
                 var reg = /\{([\w]+)\}/.exec(text);
                 if (reg) text = text.replace(reg[0], "").trim();
 
@@ -719,12 +735,57 @@
         mainCtx.stroke();
         mainCtx.restore();
     }
+    function drawMinimap() {
+        if (border.centerX !== 0 || border.centerY !== 0)
+            // scramble level 2+ makes the minimap unusable
+            // and is detectable with a non-zero map center
+            return;
+        mainCtx.save();
+        var targetSize = 200 / viewMult;
+        var width = targetSize * (border.width / border.height);
+        var height = targetSize * (border.height / border.width);
+        var beginX = mainCanvas.width / viewMult - width;
+        var beginY = mainCanvas.height / viewMult - height;
+
+        mainCtx.fillStyle = "#000";
+        mainCtx.globalAlpha = 0.4;
+        mainCtx.fillRect(beginX, beginY, width, height);
+        mainCtx.globalAlpha = 1;
+
+        var sectorCount = 5;
+        var sectorNames = ["ABCDE", "12345"];
+        var sectorWidth = width / sectorCount;
+        var sectorHeight = height / sectorCount;
+        var sectorNameSize = Math.min(sectorWidth, sectorHeight) / 3;
+
+        mainCtx.fillStyle = "#666";
+        mainCtx.textBaseline = "middle";
+        mainCtx.textAlign = "center";
+        mainCtx.font = `${sectorNameSize}px Ubuntu`;
+
+        for (var i = 0; i < sectorCount; i++) {
+            var x = sectorWidth / 2 + i * sectorWidth;
+            for (var j = 0; j < sectorCount; j++) {
+                var y = sectorHeight / 2 + j * sectorHeight;
+                mainCtx.fillText(`${sectorNames[0][i]}${sectorNames[1][j]}`, beginX + x, beginY + y);
+            }
+        }
+
+        var myPosX = beginX + ((cameraX + border.width / 2) / border.width * width);
+        var myPosY = beginY + ((cameraY + border.height / 2) / border.height * height);
+        mainCtx.fillStyle = "#FAA";
+        mainCtx.beginPath();
+        mainCtx.arc(myPosX, myPosY, 5, 0, PI_2, false);
+        mainCtx.closePath();
+        mainCtx.fill();
+        mainCtx.restore();
+    }
 
     function drawGame() {
         stats.framesPerSecond += (1000 / Math.max(Date.now() - syncAppStamp, 1) - stats.framesPerSecond) / 10;
         syncAppStamp = Date.now();
 
-        var drawList = cells.list.slice(0).sort(nodeSort);
+        var drawList = cells.list.slice(0).sort(cellSort);
         for (var i = 0, l = drawList.length; i < l; i++)
             drawList[i].update(syncAppStamp);
         cameraUpdate();
@@ -773,6 +834,7 @@
             );
             mainCtx.globalAlpha = 1;
         }
+        drawMinimap();
 
         mainCtx.restore();
 
@@ -780,7 +842,7 @@
         wHandle.requestAnimationFrame(drawGame);
     }
     
-    function nodeSort(a, b) {
+    function cellSort(a, b) {
         return a.s === b.s ? a.id - b.id : a.s - b.s;
     }
 
@@ -1092,15 +1154,15 @@
         mainCtx = mainCanvas.getContext("2d");
         chatBox = document.getElementById("chat_textbox");
         mainCanvas.focus();
-        function handleWheel(event) {
+        function handleScroll(event) {
             mouseZ *= Math.pow(.9, event.wheelDelta / -120 || event.detail || 0);
             1 > mouseZ && (mouseZ = 1);
             mouseZ > 4 / mouseZ && (mouseZ = 4 / mouseZ);
         }
         if (/firefox/i.test(navigator.userAgent))
-            document.addEventListener("DOMMouseScroll", handleWheel, false);
+            document.addEventListener("DOMMouseScroll", handleScroll, false);
         else
-            document.body.onmousewheel = handleWheel;
+            document.body.onmousewheel = handleScroll;
         wHandle.onkeydown = function(event) {
             switch (event.keyCode) {
                 case 13: // enter
@@ -1198,7 +1260,7 @@
             mouseY = event.clientY;
         };
         setInterval(function() {
-            // Mouse update
+            // send mouse update
             sendMouseMove(
                 (mouseX - mainCanvas.width / 2) / cameraZ + cameraX,
                 (mouseY - mainCanvas.height / 2) / cameraZ + cameraY
