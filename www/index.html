@@ -52,8 +52,8 @@
                 <div class="form-group">
                     <input id="nick" class="form-control save" data-box-id="0" placeholder="Nick" maxlength="15" />
                     <select id="gamemode" class="form-control" onchange="setserver($(this).val());" required>
-                        <option selected disabled>Gamemode:</option>
-                        <option value="127.0.0.1:443">FFA</option>
+                        <option selected disabled>Servers:</option>
+                        <option value="127.0.0.1:443">Local</option>
                     </select>
                     <br clear="both" />
                 </div>
@@ -80,15 +80,15 @@
                         <label>
                             <input type="checkbox" class="save" data-box-id="2" onchange="setNames(!$(this).is(':checked'));"> No names</label>
                         <label>
-                            <input type="checkbox" class="save" data-box-id="3" onchange="setDarkTheme($(this).is(':checked'));"> Dark Theme</label>
+                            <input type="checkbox" class="save" data-box-id="3" onchange="setDarkTheme($(this).is(':checked'));"> Dark theme</label>
                         <label>
                             <input type="checkbox" class="save" data-box-id="4" onchange="setColors($(this).is(':checked'));"> No colors</label>
                         <label>
                             <input type="checkbox" class="save" data-box-id="5" onchange="setShowMass($(this).is(':checked'));"> Show mass</label>
                         <label>
-                            <input type="checkbox" class="save" data-box-id="6" onchange="setSmooth($(this).is(':checked'));"> Smooth Render</label>
+                            <input type="checkbox" class="save" data-box-id="7" onchange="setChatHide($(this).is(':checked'));"> Hide chat</label>
                         <label>
-                            <input type="checkbox" class="save" data-box-id="7" onchange="setChatHide($(this).is(':checked'));"> Hide Chat</label>
+                            <input type="checkbox" class="save" data-box-id="8" onchange="setMinimap($(this).is(':checked'));"> Hide minimap</label>
                     </div>
                 </div>
             </form>
