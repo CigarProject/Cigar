@@ -464,13 +464,7 @@
         score: NaN,
         maxScore: 0
     });
-    wHandle.exposed = {
-        cells: cells,
-        border: border,
-        leaderboard: leaderboard,
-        chat: chat,
-        stats: stats
-    };
+
     var ws = null;
     var wsUrl = null;
     var disconnectDelay = 1000;
